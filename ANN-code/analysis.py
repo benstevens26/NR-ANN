@@ -40,4 +40,6 @@ for e in test_events:
             example_dark_list[np.random.randint(0, len(example_dark_list) - 1)],
         ),
     )
+    e.image = np.array([[j if j > 50 else 0 for j in i] for i in e.image])
     e.plot_image_with_axis()
+    e.plot_intensity_profile(num_segments=200)
