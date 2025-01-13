@@ -93,4 +93,6 @@ def feature_analysis(path):
 # print(result.head())
 
 
-feature_analysis("/vols/lz/twatson/ANN/NR-ANN/ANN-code/Data/30_segs_2x2_binned_features.csv")
+feature_analysis(
+    "/vols/lz/twatson/ANN/NR-ANN/ANN-code/Data/30_segs_2x2_binned_features.csv"
+)

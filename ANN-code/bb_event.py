@@ -16,6 +16,7 @@ import numpy as np
 
 # plt.rcParams.update(custom_params)
 
+
 class Event:
     """
     A class to represent an event and hold its attributes.

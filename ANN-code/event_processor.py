@@ -131,7 +131,7 @@ def extract_features(event, num_segments=15):
     """
     axis, mean_x, mean_y = event.get_principal_axis()
     if type(axis) is str:
-        return 'fup'
+        return "fup"
 
     recoil_angle = event.get_recoil_angle()
 

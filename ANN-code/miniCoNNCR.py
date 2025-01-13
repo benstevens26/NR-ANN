@@ -1,4 +1,3 @@
-
 from cnn_processing import load_events_bb as load_events
 import tensorflow as tf
 from cnn_processing import bin_image, smooth_operator, noise_adder, pad_image, load_data
@@ -8,8 +7,8 @@ import numpy as np
 
 
 # Define base directories and batch size
-#base_dirs = ['/vols/lz/MIGDAL/sim_ims/C', '/vols/lz/MIGDAL/sim_ims/F']  # List your data directories here
-base_dirs = ['Data/C', 'Data/F']
+# base_dirs = ['/vols/lz/MIGDAL/sim_ims/C', '/vols/lz/MIGDAL/sim_ims/F']  # List your data directories here
+base_dirs = ["Data/C", "Data/F"]
 batch_size = 32
 dark_list_number = 0
 binning = 1
@@ -32,20 +31,24 @@ val_dataset = remaining.take(val_size)  # Next 15%
 test_dataset = remaining.skip(val_size)  # Final 15%
 
 # Define the model
-miniCoNNCR = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=((572, 768), 1)),
-    tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),  # Reduce filters
-    tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),  # Reduce filters
-    tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.GlobalAveragePooling2D(),  # Replaces Flatten
-    tf.keras.layers.Dense(32, activation='relu'),  # Reduce neurons
-    tf.keras.layers.Dropout(0.5),
-    tf.keras.layers.Dense(2, activation='softmax')
-])
+miniCoNNCR = tf.keras.Sequential(
+    [
+        tf.keras.layers.Input(shape=((572, 768), 1)),
+        tf.keras.layers.Conv2D(16, (3, 3), activation="relu"),  # Reduce filters
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.Conv2D(32, (3, 3), activation="relu"),  # Reduce filters
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.GlobalAveragePooling2D(),  # Replaces Flatten
+        tf.keras.layers.Dense(32, activation="relu"),  # Reduce neurons
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(2, activation="softmax"),
+    ]
+)
 
 # Compile the model
-miniCoNNCR.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+miniCoNNCR.compile(
+    optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+)
 
 print(miniCoNNCR.summary())
 exit()
@@ -67,8 +70,8 @@ from tensorflow.math import confusion_matrix
 from sklearn.metrics import f1_score, precision_score, recall_score
 import performance as pf
 
-model_save_path = 'miniCoNNCR.keras'
-history_save_path = 'miniCoNNCR_history.pkl'
+model_save_path = "miniCoNNCR.keras"
+history_save_path = "miniCoNNCR_history.pkl"
 
 LENRI = load_model(model_save_path)
 
@@ -109,5 +112,3 @@ first_layer_weights = LENRI.layers[0].get_weights()[0]
 
 # pf.weights_plotter(first_layer_weights, names)
 pf.roc_plotter(y_true, y_pred_prob)
-
-

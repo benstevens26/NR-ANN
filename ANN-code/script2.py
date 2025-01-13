@@ -4,7 +4,7 @@ base_dirs = ["/vols/lz/tmarley/GEM_ITO/run/im0"]
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
 
 chunk_size = 30
-output_csv = 'features_im0.csv'
+output_csv = "features_im0.csv"
 
 events = yield_events(base_dirs)
 

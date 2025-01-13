@@ -168,8 +168,7 @@ class Event:
         try:
             principal_axis = Vt[0]
         except:
-            return 'fup'
-
+            return "fup"
 
         if principal_axis[0] < 0:
             principal_axis[0] = -principal_axis[0]

@@ -5,7 +5,7 @@ import json
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 
 # Load the pre-trained model
-model_path = 'Data/CoNNCR.keras'
+model_path = "Data/CoNNCR.keras"
 CoNNCR = tf.keras.models.load_model(model_path)
 
 
@@ -27,7 +27,6 @@ print(f"F1 Score: {f1:.4f}")
 
 # (Optional) Save evaluation results
 evaluation_results = {
-
     "precision": precision,
     "recall": recall,
     "f1_score": f1,
