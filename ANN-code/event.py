@@ -165,7 +165,11 @@ class Event:
         U, S, Vt = svd(data_matrix - np.mean(data_matrix, axis=0), full_matrices=False)
 
         # The principal axis is given by the first row of Vt (right singular vectors)
-        principal_axis = Vt[0]
+        try:
+            principal_axis = Vt[0]
+        except:
+            return 'fup'
+
 
         if principal_axis[0] < 0:
             principal_axis[0] = -principal_axis[0]
