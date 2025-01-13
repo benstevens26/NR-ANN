@@ -140,7 +140,6 @@ def extract_features(event, num_segments=15):
     total_intensity = event.get_track_intensity()
     max_den = event.get_max_den()
     name = event.name
-    noise_index = event.noise_index
     int_mean, int_median, int_skew, int_kurt, int_std = event.get_intensity_parameters(
         segment_intensities
     )
@@ -148,7 +147,6 @@ def extract_features(event, num_segments=15):
     return np.array(
         [
             name,
-            noise_index,
             length,
             total_intensity,
             max_den,
@@ -206,7 +204,6 @@ def event_processor(
         writer.writerow(
             [
                 "name",
-                "noise_index",
                 "length",
                 "total_intensity",
                 "max_den",

@@ -1,9 +1,7 @@
 import sys
 import itertools
-import os
 
-import numpy as np
-from old_models.feature_extraction.event_processor import event_processor, yield_events
+from event_processor import event_processor, yield_events
 
 
 def process_segment(
