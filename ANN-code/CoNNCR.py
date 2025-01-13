@@ -51,13 +51,13 @@ X_val, X_test, y_val, y_test = train_test_split(
 
 # Define CoNNCR
 
-input_shape = (415, 559, 1)  # Example shape, you can change it based on your data
+input_shape = ((572, 768), 1)  # Example shape, you can change it based on your data
 
 # Define the model
 model = Sequential()
 
 # Conv Block 1
-model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(415, 559, 1)))
+model.add(Conv2D(32, (3, 3), activation='relu', input_shape=((572, 768), 1)))
 model.add(BatchNormalization())
 model.add(MaxPooling2D(pool_size=(2, 2)))
 

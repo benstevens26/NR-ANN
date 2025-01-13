@@ -256,7 +256,7 @@ def parse_function(file_path, m_dark, example_dark_list_unbinned, binning=1):
     Returns:
     -------
     image : np.ndarray
-        A preprocessed 3D tensor representing the image, with shape (415, 559, 1).
+        A preprocessed 3D tensor representing the image, with shape ((572, 768), 1).
     label : int
         The label extracted from the file name: 0 for 'C' (carbon), 1 for 'F' (fluorine).
     """
@@ -282,7 +282,7 @@ def parse_function(file_path, m_dark, example_dark_list_unbinned, binning=1):
     image = pad_image(image)
 
     image = image.astype(np.float32)
-    image = np.expand_dims(image, axis=-1)  # shape becomes (415, 559, 1) for grayscale
+    image = np.expand_dims(image, axis=-1)  # shape becomes ((572, 768), 1) for grayscale
 
     return image, label
 
@@ -341,7 +341,7 @@ def load_data(base_dirs, batch_size, example_dark_list, m_dark, data_frac=1.0):
 
     # set output shapes to avoid rank issues
     dataset = dataset.map(lambda image, label: (
-        tf.ensure_shape(image, (415, 559, 1)),
+        tf.ensure_shape(image, (572, 768, 1)),
         tf.ensure_shape(label, ())
     ))
 

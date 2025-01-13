@@ -38,7 +38,7 @@ test_dataset = remaining.skip(val_size)  # Final 15%
 
 CoNNCRv1 = tf.keras.Sequential([
     # Input layer
-    tf.keras.layers.Input(shape=(415, 559, 1)),
+    tf.keras.layers.Input(shape=((572, 768), 1)),
 
     # Convolutional layers
     tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),

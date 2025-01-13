@@ -12,7 +12,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 # Define base directories and batch size
 
 # base_dirs = ['/vols/lz/MIGDAL/sim_ims/C', '/vols/lz/MIGDAL/sim_ims/F']  # List your data directories here
-base_dirs = ['Data/im0']  # List your data directories here
+base_dirs = ['Data/im2']  # List your data directories here
 batch_size = 32
 dark_list_number = 0
 binning = 1
@@ -38,7 +38,7 @@ test_dataset = remaining.skip(val_size)  # Final 15%
 
 CoNNCR = tf.keras.Sequential([
     # Input Layer
-    tf.keras.layers.Input(shape=(415, 559, 1)),
+    tf.keras.layers.Input(shape=(572, 768, 1)),
 
     # Convolutional Block 1
     tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same'),

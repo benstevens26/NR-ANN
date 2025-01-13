@@ -33,7 +33,7 @@ test_dataset = remaining.skip(val_size)  # Final 15%
 
 # Define the model
 miniCoNNCR = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(415, 559, 1)),
+    tf.keras.layers.Input(shape=((572, 768), 1)),
     tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),  # Reduce filters
     tf.keras.layers.MaxPooling2D((2, 2)),
     tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),  # Reduce filters
