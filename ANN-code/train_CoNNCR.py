@@ -7,11 +7,12 @@ from convert_sim_ims import convert_im, get_dark_sample
 import pickle
 from cnn_processing import bin_image, smooth_operator, noise_adder, pad_image, parse_function, load_data
 import json
+from tensorflow.keras.callbacks import EarlyStopping
 
 # Define base directories and batch size
 
 # base_dirs = ['/vols/lz/MIGDAL/sim_ims/C', '/vols/lz/MIGDAL/sim_ims/F']  # List your data directories here
-base_dirs = ['Data/C', 'Data/F']  # List your data directories here
+base_dirs = ['Data/im0']  # List your data directories here
 batch_size = 32
 dark_list_number = 0
 binning = 1
@@ -35,26 +36,56 @@ remaining = full_dataset.skip(train_size)  # Remaining 30%
 val_dataset = remaining.take(val_size)  # Next 15%
 test_dataset = remaining.skip(val_size)  # Final 15%
 
-
 CoNNCR = tf.keras.Sequential([
+    # Input Layer
     tf.keras.layers.Input(shape=(415, 559, 1)),
-    tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),  # Reduce filter count
+
+    # Convolutional Block 1
+    tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same'),
+    tf.keras.layers.MaxPooling2D((2, 2)),  # Downsampling by 2x
+
+    # Convolutional Block 2
+    tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
+    tf.keras.layers.MaxPooling2D((2, 2)),  # Further downsampling
+
+    # Convolutional Block 3
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
     tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),  # Reduce filter count
+
+    # Convolutional Block 4
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
     tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Flatten(),  # Use Flatten for simplicity
-    tf.keras.layers.Dense(32, activation='relu'),  # Reduce dense layer size
-    tf.keras.layers.Dropout(0.5),  # Retain dropout
-    tf.keras.layers.Dense(2, activation='softmax')
+
+    # Global Average Pooling for Feature Aggregation
+    tf.keras.layers.GlobalAveragePooling2D(),  # Reduces spatial dimensions to one value per feature map
+
+    # Fully Connected Layer
+    tf.keras.layers.Dense(32, activation='relu'),  # Lightweight dense layer
+    tf.keras.layers.Dropout(0.5),  # Regularization to prevent overfitting
+
+    # Output Layer
+    tf.keras.layers.Dense(2, activation='softmax')  # Binary classification
 ])
 
 # Compile the model
 CoNNCR.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
 print(CoNNCR.summary())
-exit()
-# Train the model
-CoNNCR.fit(train_dataset, validation_data=val_dataset, epochs=10)
+
+# Define EarlyStopping callback
+early_stopping = EarlyStopping(
+    monitor='val_loss',       # Metric to monitor (e.g., 'val_loss', 'val_accuracy')
+    patience=5,               # Number of epochs with no improvement before stopping
+    restore_best_weights=True # Restore the best weights at the end of training
+)
+
+# Train the model with EarlyStopping
+history = CoNNCR.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=20,                # Set a high maximum epoch count
+    callbacks=[early_stopping] # Add EarlyStopping callback here
+)
 
 # Save the trained model
 CoNNCR.save('CoNNCR.keras')
@@ -65,6 +96,7 @@ history_dict = CoNNCR.history.history
 with open("CoNNCR_history.json", "w") as file:
     json.dump(history_dict, file)
 
+exit()
 #%%
 
 # # For loading the files:

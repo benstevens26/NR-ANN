@@ -17,7 +17,7 @@ import pickle
 # Data Preparation
 
 # Load CSV data
-data = pd.read_csv("Data/more_features_noisy.csv")  # Change to file path
+data = pd.read_csv("test_data_im2.csv")  # Change to file path
 
 # #Trying to match carbon and fluorine data amounts
 # carbon_events = data[data["name"].str.contains("C")]
@@ -37,6 +37,7 @@ X = data.iloc[
     :, 2:10  # CHANGE WHEN MORE FEATURES ADDED
 ].values  # Select columns with feature data (assuming columns 1-4 are features)
 y = data["species"].values
+
 
 # Split into training and testing sets
 train_ratio = 0.75
@@ -85,20 +86,7 @@ LENRI = Sequential(
     ]
 )
 
-# # updated hyperparams: (worse)
-# LENRI = Sequential(
-#     [
-#         Dense(
-#             64, input_shape=(8,), activation="leaky_relu"
-#         ),  # Input layer with 4 features. CHANGE WHEN MORE FEATURES ADDED
-#         Dropout(0.3),  # Dropout for regularisation
-#         Dense(48, activation="leaky_relu"),  # Hidden layer
-#         Dropout(0.4),  # Dropout for regularisation
-#         Dense(8, activation="leaky_relu"),  # Another hidden layer
-#         Dropout(0.4), # Another dropout
-#         Dense(2, activation="softmax"),  # Output layer for binary classification
-#     ]
-# )
+
 # Compile LENRI
 LENRI.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 # K.set_value(LENRI.optimizer.learning_rate, 0.03) # grid searched

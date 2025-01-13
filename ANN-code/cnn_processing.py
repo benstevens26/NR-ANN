@@ -37,7 +37,7 @@ def resize_pad_image(image, target_size=(224, 224)):
     return resized_image
 
 
-def pad_image_2(image, target_size=(415, 559)):
+def pad_image_2(image, target_size=(572, 768)):
     """
     Pad an image to a target size by embedding it in a larger frame with random offsets.
 
@@ -46,7 +46,7 @@ def pad_image_2(image, target_size=(415, 559)):
     image : np.ndarray
         The input image to be padded.
     target_size : tuple of int, optional
-        The target size for the padded image, specified as (height, width). Default is (415, 559).
+        The target size for the padded image, specified as (height, width). Default is (572, 768).
 
     Returns:
     -------
@@ -64,7 +64,7 @@ def pad_image_2(image, target_size=(415, 559)):
         small_height, small_width = small_image.shape[:2]
         target_height, target_width = target_size
 
-        # Create an empty frame filled with zeros (black) of size (415, 559)
+        # Create an empty frame filled with zeros (black) of size (572, 768)
         target_frame = np.zeros((target_height, target_width), dtype=small_image.dtype)
 
         # Calculate maximum offsets so the small image fits inside the target frame
@@ -202,7 +202,7 @@ def noise_adder(image, m_dark=None, example_dark_list=None):
     return image
 
 
-def pad_image(image, target_size=(415, 559)):
+def pad_image(image, target_size=(572, 768)):
     """
     Pad an image to a target size by embedding it in a larger frame with random offsets.
 
@@ -211,7 +211,7 @@ def pad_image(image, target_size=(415, 559)):
     image : np.ndarray
         The input image to be padded.
     target_size : tuple of int, optional
-        The target size for the padded image, specified as (height, width). Default is (415, 559).
+        The target size for the padded image, specified as (height, width). Default is (572, 768).
 
     Returns:
     -------
@@ -221,7 +221,7 @@ def pad_image(image, target_size=(415, 559)):
     small_height, small_width = image.shape[:2]
     target_height, target_width = target_size
 
-    # Create an empty frame filled with zeros (black) of size (415, 559)
+    # Create an empty frame filled with zeros (black) of size (572, 768)
     target_frame = np.zeros((target_height, target_width), dtype=image.dtype)
 
     # Calculate maximum offsets so the small image fits inside the target frame
