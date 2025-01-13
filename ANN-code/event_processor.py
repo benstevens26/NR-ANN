@@ -269,6 +269,9 @@ def yield_events(base_dirs):
                 f for f in files if f.endswith(".npy")
             )  # Sort and filter files for .npy
 
+            # np.random.seed(5)
+            np.random.shuffle(files)
+
             for file in files:
                 file_path = os.path.join(root, file)
                 # Load the event data from the .npy file

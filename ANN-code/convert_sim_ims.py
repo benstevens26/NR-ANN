@@ -46,6 +46,10 @@ def convert_im(
     im, dark_sample, light_fraction=light_fraction, reflect_fraction=0, gain_corr=10
 ):
     gen = np.random.default_rng()
+
+    # noise? causing negative entries into image. going to zero any negative entries
+    # im[im < 0] = 0
+
     #     im = light_fraction*gain_corr*im/0.11
     im = gen.binomial((gain_corr * im).astype(np.int32), light_fraction) / 0.11
     if reflect_fraction:
