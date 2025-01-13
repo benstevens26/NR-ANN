@@ -130,7 +130,7 @@ def extract_features(event, num_segments=15):
         Array of features including [name, length, energy, max_den, recoil_angle].
     """
     axis, mean_x, mean_y = event.get_principal_axis()
-    if axis == 'fup':
+    if type(axis) is str:
         return 'fup'
 
     recoil_angle = event.get_recoil_angle()
@@ -225,7 +225,7 @@ def event_processor(
             # event = noise_remover(event)
             event = smooth_operator(event)
             features = extract_features(event, num_segments=num_bisector_segments)
-            if features == 'fup':
+            if type(features) is str:
                 continue
             chunk.append(features)
 
