@@ -1,21 +1,35 @@
 import tensorflow as tf
-import numpy as np
-import os
-import random
-import scipy.ndimage as nd
-from convert_sim_ims import convert_im, get_dark_sample
-import pickle
-from cnn_processing import (
-    bin_image,
-    smooth_operator,
-    noise_adder,
-    pad_image,
-    parse_function,
-    load_data,
-)
-import json
-from tensorflow.keras.callbacks import EarlyStopping
+# import numpy as np
+# import os
+# import random
+# import scipy.ndimage as nd
+# from convert_sim_ims import convert_im, get_dark_sample
+# import pickle
+# from cnn_processing import (
+#     bin_image,
+#     smooth_operator,
+#     noise_adder,
+#     pad_image,
+#     parse_function,
+#     load_data,
+# )
+# import json
+# from tensorflow.keras.callbacks import EarlyStopping
 
+# Check if a GPU is available and set memory growth
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Enable memory growth to avoid taking all GPU memory
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"Using GPU: {gpus[0].name}")
+    except RuntimeError as e:
+        print(f"Error setting up GPU: {e}")
+else:
+    print("No GPU found. Running on CPU.")
+
+exit()
 # Define base directories and batch size
 
 base_dirs = [
