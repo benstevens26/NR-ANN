@@ -165,3 +165,5 @@ Data
 ANN-code/Data
 ANN-code/test.py
 figures
+ANN-code/logs/
+logs/
