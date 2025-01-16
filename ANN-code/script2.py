@@ -1,10 +1,10 @@
 from event_processor import event_processor, yield_events
 
-base_dirs = ["/vols/lz/tmarley/GEM_ITO/run/im4"]
+base_dirs = ["/vols/lz/tmarley/GEM_ITO/run/im3"]
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
 
 chunk_size = 30
-output_csv = "outputs/features_im4.csv"
+output_csv = "output/features_im3.csv"
 
 events = yield_events(base_dirs)
 
