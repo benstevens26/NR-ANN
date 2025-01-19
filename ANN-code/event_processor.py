@@ -94,7 +94,7 @@ def noise_adder(event, m_dark=None, example_dark_list=None, noise_index=None):
         event.image,
         get_dark_sample(
             m_dark,
-            [len(event.image[0]), len(event.image)],
+            [len(event.image[0]), len(event.image[1])],
             example_dark_list[noise_index],
         ),
     )
