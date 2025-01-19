@@ -1,7 +1,8 @@
 from event_processor import event_processor, yield_events
 import numpy as np
 
-base_dirs = ["/vols/lz/tmarley/GEM_ITO/run/im0"]
+base_dirs = ["/vols/lz/tmarley/GEM_ITO/run/im0", "/vols/lz/tmarley/GEM_ITO/run/im1/C", "/vols/lz/tmarley/GEM_ITO/run/im1/F",
+             "/vols/lz/tmarley/GEM_ITO/run/im2", "/vols/lz/tmarley/GEM_ITO/run/im3", "/vols/lz/tmarley/GEM_ITO/run/im4" ]
 # base_dirs = ['Data/im0']
 events = yield_events(base_dirs)
 
