@@ -1,5 +1,6 @@
 from bb_event import load_events_bb
 import numpy as np
+from tqdm import tqdm
 
 base_dirs = ["/vols/lz/tmarley/GEM_ITO/run/im0", "/vols/lz/tmarley/GEM_ITO/run/im1/C", "/vols/lz/tmarley/GEM_ITO/run/im1/F",
              "/vols/lz/tmarley/GEM_ITO/run/im2", "/vols/lz/tmarley/GEM_ITO/run/im3", "/vols/lz/tmarley/GEM_ITO/run/im4" ]
@@ -10,7 +11,7 @@ max_height = 0
 for path in base_dirs:
     events = load_events_bb(path)
 
-    for event in events:
+    for event in tqdm(events):
         shape = np.shape(event.image)
         # shape is (height, width)
         if shape[0] > max_height:
