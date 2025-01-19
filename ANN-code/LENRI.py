@@ -17,8 +17,18 @@ import pickle
 
 # Data Preparation
 
-# Load CSV data
-data = pd.read_csv("features_im0.csv")  # Change to file path
+files = ["Data/features_im0.csv", "Data/features_im1.csv", "Data/features_im2.csv"]
+
+# Read and concatenate the CSV files
+data_frames = [pd.read_csv(file) for file in files]
+combined_df = pd.concat(data_frames, ignore_index=True)
+
+carbon_events = combined_df[combined_df["name"].str.contains("C")]
+fluorine_events = combined_df[combined_df["name"].str.contains("F")]
+
+print(len(carbon_events), len(fluorine_events))
+
+exit()
 
 # #Trying to match carbon and fluorine data amounts
 # carbon_events = data[data["name"].str.contains("C")]
