@@ -155,7 +155,15 @@ if gpus:
         # Set memory growth to prevent TensorFlow from allocating all GPU memory at once
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, False)
-        print(f"Using GPU: {gpus[0].name}")
+            print(f"Using GPU: {gpus[0].name}")
+            memory_info = tf.config.experimental.get_memory_info(gpu.name)
+            current_mb = memory_info['current'] / (1024 ** 2)
+            peak_mb = memory_info['peak'] / (1024 ** 2)
+            print(f"GPU {gpu.name}:")
+            print(f"  Current memory usage: {current_mb:.2f} MB")
+            print(f"  Peak memory usage: {peak_mb:.2f} MB")
+    except Exception as e:
+            print(f"Could not retrieve memory info for GPU {gpu.name}: {e}")
     except RuntimeError as e:
         print(f"Error while setting memory growth: {e}")
 # HOPEFULLY this means it will automatically use the gpu from this point?
