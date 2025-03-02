@@ -174,3 +174,7 @@ ANN-code/new-venv
 ANN-code/old_models/old_logs/cnn_0.err
 ANN-code/CoNNCR-R.py
 ANN-code/*.png
+ANN-code/CoNNCR-R_predictions_1.csv
+ANN-code/CoNNCR-R_train_val_predictions_1.csv
+ANN-code/roc_curve_data.csv
+*.png
