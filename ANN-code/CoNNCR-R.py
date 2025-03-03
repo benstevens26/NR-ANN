@@ -20,6 +20,7 @@ from cnn_processing import (
     load_data_yield,
     load_data_yield_bb,
     PreprocessingLayer,
+    yield_preprocessed_data
 )
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
@@ -28,6 +29,7 @@ from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input  # type:
 from tensorflow.keras.layers import *  # type: ignore
 
 use_working_version = True
+use_preprocessed = True
 
 print(
     """
@@ -178,7 +180,10 @@ print(
 
 # Define base directories and batch size
 # with tf.device(gpus[0].name):
-base_dirs = [
+if use_preprocessed:
+    base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images"]
+else:
+    base_dirs = [
     "/vols/lz/tmarley/GEM_ITO/run/im0/C",
     "/vols/lz/tmarley/GEM_ITO/run/im0/F",
     "/vols/lz/tmarley/GEM_ITO/run/im1/C",
@@ -219,13 +224,21 @@ m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
 example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
 
 if use_working_version:
-    full_dataset = tf.data.Dataset.from_generator(
-        lambda: load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, 3),
-        output_signature=(
-            tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
-            tf.TensorSpec(shape=(), dtype=tf.int32),
-        ),
-    )
+    if use_preprocessed:
+        full_dataset = tf.data.Dataset.from_generator(
+            lambda: yield_preprocessed_data(base_dirs),
+            output_signature=(
+                tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
+                tf.TensorSpec(shape=(), dtype=tf.int32),
+        )
+    else:
+        full_dataset = tf.data.Dataset.from_generator(
+            lambda: load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, 3),
+            output_signature=(
+                tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
+                tf.TensorSpec(shape=(), dtype=tf.int32),
+            ),
+        )
 else:  # Failed layering approach:
     full_dataset = tf.data.Dataset.from_generator(
         lambda: load_data_yield_bb(base_dirs, 3),
@@ -252,10 +265,10 @@ train_size = int(0.7 * dataset_size)
 val_size = int(0.15 * dataset_size)
 test_size = dataset_size - train_size - val_size  # Ensure all data is used
 
-train_dataset = full_dataset.take(train_size).cache("/vols/lz/twatson/CNN_cache").repeat().batch(batch_size, drop_remainder=True) # First 70%
+train_dataset = full_dataset.take(train_size).repeat().batch(batch_size, drop_remainder=True) # First 70%
 remaining = full_dataset.skip(train_size)  # Remaining 30%
-val_dataset = full_dataset.skip(train_size).take(val_size).cache("/vols/lz/twatson/CNN_cache").batch(batch_size, drop_remainder=False) # Next 15%
-test_dataset = full_dataset.skip(train_size + val_size).cache("/vols/lz/twatson/CNN_cache").batch(batch_size, drop_remainder=False) # Final 15%
+val_dataset = full_dataset.skip(train_size).take(val_size).repeat().batch(batch_size, drop_remainder=False) # Next 15%
+test_dataset = full_dataset.skip(train_size + val_size).batch(batch_size, drop_remainder=False) # Final 15%
 
 
 # print(train_dataset.take(1))
@@ -451,12 +464,12 @@ early_stopping = keras.callbacks.EarlyStopping(
 )
 
 # load in epoch 1
-model.load_weights("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v2/epoch-01.keras")
+# model.load_weights("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v2/epoch-01.keras")
 
 history = model.fit(
     train_dataset,
     epochs=epochs,
-    initial_epoch=1,
+    # initial_epoch=1,
     steps_per_epoch=(train_size // batch_size),
     batch_size=batch_size,
     validation_data=val_dataset,
@@ -492,39 +505,13 @@ print(
 )
 info_filename = os.path.join(log_dir, "info.txt")
 
-# with open(history_filename, "w") as file:
-#     json.dump(history.history, file)
+with open(history_filename, "w") as file:
+    json.dump(history.history, file)
 
-# with open(info_filename, "w") as file:
-#     file.write("***Training Info***\n")
-#     file.write("Training Start: {}".format(train_start_time))
-#     file.write("Training End: {}\n".format(train_end_time))
-#     file.write("Arguments:\n")
-#     # for arg in sys.argv:
-#     #     file.write("\t{}\n".format(arg))
-from cnn_processing import parse_function
-
-# Mock data creation
-# example_tensor = tf.convert_to_tensor(np.random.rand(128, 128, 3), dtype=tf.float32)  # Adjust shape/dtype as per your actual data.
-
-# Test `parse_function`
-
-
-try:
-    output = parse_function(
-        "/vols/lz/MIGDAL/sim_ims/C/300-320keV/313.879keV_C_2.228cm_1141_gem_out.npy",
-        m_dark,
-        example_dark_list_unbinned,
-        channels=3,
-    )
-    print("Parse function output:", output)
-except Exception as e:
-    print("Error in parse_function:", e)
-
-print(
-    """
-      -=+=-
-      Checkpoint #11
-      -=+=-
-      """
-)
+with open(info_filename, "w") as file:
+    file.write("***Training Info***\n")
+    file.write("Training Start: {}".format(train_start_time))
+    file.write("Training End: {}\n".format(train_end_time))
+    file.write("Arguments:\n")
+    for arg in sys.argv:
+        file.write("\t{}\n".format(arg))

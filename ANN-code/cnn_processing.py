@@ -660,6 +660,27 @@ def load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, channels=1):
     #     )
     # )
 
+def yield_preprocessed_data(base_dirs):
+    # Get all the .npy files from base_dirs
+    file_list = []
+    for base_dir in base_dirs:
+        for root, dirs, files in os.walk(base_dir):
+            files = [f for f in files if (f.endswith(".npy"))]
+            file_list.extend([os.path.join(root, file) for file in files])
+
+    file_list.sort()
+    np.random.seed(77)
+    np.random.shuffle(file_list)
+
+    # Process the single image
+    for file_path in file_list:
+        image = np.load(file_path)
+        label = 0 if "C" in os.path.basename(file_path) else 1
+        yield image, label
+
+
+
+
 
 def load_data_yield_bb(base_dirs, channels=3):
     # Removing bad eggs
