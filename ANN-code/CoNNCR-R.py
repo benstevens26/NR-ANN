@@ -220,8 +220,8 @@ print(
       """
 )
 
-m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
-example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
+# m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
+# example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
 
 if use_working_version:
     if use_preprocessed:
@@ -230,6 +230,7 @@ if use_working_version:
             output_signature=(
                 tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
                 tf.TensorSpec(shape=(), dtype=tf.int32),
+        )
         )
     else:
         full_dataset = tf.data.Dataset.from_generator(
