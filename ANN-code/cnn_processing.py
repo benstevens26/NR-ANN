@@ -679,6 +679,14 @@ def yield_preprocessed_data(base_dirs):
         yield image, label
 
 
+def get_file_list(base_dirs):
+    file_list = []
+    for base_dir in base_dirs:
+        for root, dirs, files in os.walk(base_dir):
+            files = [f for f in files if f.endswith(".npy")]
+            file_list.extend([os.path.join(root, file) for file in files])
+    file_list.sort()
+    return file_list
 
 
 

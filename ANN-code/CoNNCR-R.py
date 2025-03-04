@@ -20,7 +20,8 @@ from cnn_processing import (
     load_data_yield,
     load_data_yield_bb,
     PreprocessingLayer,
-    yield_preprocessed_data
+    yield_preprocessed_data,
+    get_file_list
 )
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
@@ -28,7 +29,7 @@ from tensorflow.keras.activations import softmax  # type: ignore
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input  # type: ignore
 from tensorflow.keras.layers import *  # type: ignore
 
-use_working_version = True
+use_working_version = False
 use_preprocessed = True
 
 print(
@@ -39,99 +40,18 @@ print(
       """
 )
 
-# def load_all_bb_events(base_dirs: list):
-#     """
-#     Generator function to load and yield Event objects from .npy files within specified directories.
+def load_and_process(file_path):
+    # file_path here is a tf.string tensor, so convert to numpy if needed
+    file_path = file_path.numpy().decode("utf-8")
+    image = np.load(file_path)
+    label = 0 if "C" in os.path.basename(file_path) else 1
+    return image, label
 
-#     Parameters
-#     ----------
-#     base_dirs : list of str
-#         List of base directory paths containing .npy event files.
-
-#     Yields
-#     ------
-#     Event
-#         An Event object for each .npy file found in the specified directories.
-#     """
-#     events = []
-#     for base_dir in base_dirs:
-#         for root, dirs, files in os.walk(base_dir):
-#             # Sort directories and files to ensure consistent order
-#             dirs.sort()  # Sort directories alphabetically
-#             files = sorted(
-#                 f for f in files if f.endswith(".npy")
-#             )  # Sort and filter files for .npy
-
-#             for file in files:
-#                 file_path = os.path.join(root, file)
-#                 # Load the event data from the .npy file
-#                 image = np.load(file_path)
-#                 event = BB_Event(file, image)
-#                 events.append(event)
-#     return events
-
-
-# def load_image_subset(
-#     directory: str = "/vols/lz/MIGDAL/sim_ims",
-#     frac: float = "0.4",
-#     even_split: bool = True,
-#     N_C: int = 9925,
-#     N_F: int = 39647,
-# ):
-#     """loads a subset of the images of size frac. Provide the data directory and it will load the appropriate subset.
-
-#     Args:
-#         directory (str): directory of the Data folder. The folder should contain a C folder and an F folder, each with events.
-#         frac (float): the fraction in [0,1] of data that is to be loaded. We have ~50,000 images by default so e.g. frac=0.2 would total 10,000.
-#         even_split (bool): determines if the function loads an equal number of each element. If False, it will load a representative sample by default
-#         N_C (int): total number of carbon events
-#         N_F (int): total number of fluorine events
-#     """
-#     if even_split and frac > (2 * N_C / (N_C + N_F)):
-#         raise Exception("Not enough carbon events to do an even split.")
-
-#     C_dir = f"{directory}/C"
-#     F_dir = f"{directory}/F"
-
-#     loaded_N = (N_C + N_F) * frac
-#     loaded_N_C = (
-#         int(0.5 * loaded_N // 1)
-#         if even_split
-#         else int((N_C / (N_C + N_F)) * loaded_N // 1)
-#     )
-#     loaded_N_F = (
-#         int(0.5 * loaded_N // 1)
-#         if even_split
-#         else int((N_F / (N_C + N_F)) * loaded_N // 1)
-#     )
-
-#     # Collect all files from subdirectories
-#     event_dirs = []
-#     for type in [[C_dir, loaded_N_C], [F_dir, loaded_N_F]]:
-#         base_dir = type[0]
-#         N = type[1]
-#         all_events = []
-#         for subdir in os.scandir(base_dir):
-#             if subdir.is_dir():
-#                 # Use glob to get all files in the current subdirectory
-#                 files_in_subdir = glob.glob(os.path.join(subdir.path, "*"))
-#                 all_events.extend(files_in_subdir)
-
-#         # Ensure no duplicates and enough files are available
-#         all_events = list(set(all_events))  # Remove any duplicates
-
-#         # Randomly select the specified number of files
-#         selected_files = random.sample(all_events, N)
-#         event_dirs.extend(selected_files)
-
-#     for i in range(len(event_dirs)):
-#         image = np.load(event_dirs[i])
-#         image = image * 255 / np.max(image)
-#         image = np.stack([image, image, image], axis=-1)
-#         image = preprocess_input(image)
-#         event_dirs[i] = BB_Event(event_dirs[i], image)
-
-#     return event_dirs
+def tf_load_and_process(file_path):
+    # Wrap the python function
+    image, label = tf.py_function(func=load_and_process, inp=[file_path], Tout=[tf.float32, tf.int32])
+    image.set_shape((224, 224, 3))
+    return image, label
 
 
 print("==========================================")
@@ -240,17 +160,17 @@ if use_working_version:
                 tf.TensorSpec(shape=(), dtype=tf.int32),
             ),
         )
-else:  # Failed layering approach:
-    full_dataset = tf.data.Dataset.from_generator(
-        lambda: load_data_yield_bb(base_dirs, 3),
-        output_signature=(
-            (
-                tf.TensorSpec(shape=(None, None, 3), dtype=tf.float32),  # image
-                tf.TensorSpec(shape=(2,), dtype=tf.int32),  # original_size
-            ),
-            tf.TensorSpec(shape=(), dtype=tf.int32),  # label
-        ),
-    )
+else:  # Tensor slice approach:
+    file_list = get_file_list(base_dirs)
+    np.random.seed(77)
+    np.random.shuffle(file_list)
+
+    # Create a dataset from the file list
+    full_dataset = tf.data.Dataset.from_tensor_slices(file_list)
+    full_dataset = full_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
+    full_dataset = full_dataset.shuffle(buffer_size=len(file_list))
+    full_dataset = full_dataset.batch(batch_size, drop_remainder=True)
+    full_dataset = full_dataset.prefetch(tf.data.AUTOTUNE)
 
 #############################################################
 print(
@@ -266,10 +186,10 @@ train_size = int(0.7 * dataset_size)
 val_size = int(0.15 * dataset_size)
 test_size = dataset_size - train_size - val_size  # Ensure all data is used
 
-train_dataset = full_dataset.take(train_size).repeat().batch(batch_size, drop_remainder=True) # First 70%
+train_dataset = full_dataset.take(train_size).repeat() # First 70%
 remaining = full_dataset.skip(train_size)  # Remaining 30%
-val_dataset = full_dataset.skip(train_size).take(val_size).repeat().batch(batch_size, drop_remainder=False) # Next 15%
-test_dataset = full_dataset.skip(train_size + val_size).batch(batch_size, drop_remainder=False) # Final 15%
+val_dataset = remaining.take(val_size) # Next 15%
+test_dataset = remaining.skip(val_size) # Final 15%
 
 
 # print(train_dataset.take(1))
@@ -340,38 +260,14 @@ if use_working_version:
 # )
 
 elif not use_working_version:
-    images_input = keras.Input(shape=(None, None, 3), name="images")
-    shapes_input = keras.Input(shape=(2,), name="original_shape", dtype=tf.int32)
-
-    # Apply your preprocessing layer.
-    x = PreprocessingLayer(
-        smoothing_sigma=3.5,
-        m_dark=m_dark,  # Replace with your parameter
-        example_dark_list=example_dark_list_unbinned,  # Replace with your list
-        target_size=(224, 224),
-    )([images_input, shapes_input])
-
-    x = tf.keras.layers.Resizing(
-        224, 224, pad_to_aspect_ratio=True, fill_mode="constant", fill_value=0.0
-    )(
-        x
-    )  # This should use tensorflow's inbuilt resizing
-
-    # Now x is a batch of images with shape (batch, 224, 224, 3).
-    # You can feed it into your base model.
-    base_model = VGG16(weights="imagenet", include_top=False)
-    features = base_model(x)
-
-    # Build your classification head.
-    x = tf.keras.layers.Flatten()(features)
-    x = tf.keras.layers.Dense(256, activation="relu")(x)
-    x = tf.keras.layers.Dropout(0.5)(x)
-    predictions = tf.keras.layers.Dense(10, activation="softmax")(
-        x
-    )  # adjust number of categories
-
-    # Create the model.
-    model = keras.Model(inputs=[images_input, shapes_input], outputs=predictions)
+    inputs = keras.Input(shape=(224, 224, 3))
+    base_model = VGG16(weights="imagenet", include_top=False, input_tensor=inputs)
+    net = base_model.output
+    net = tf.keras.layers.Flatten()(net)
+    net = tf.keras.layers.Dense(256, activation="relu")(net)
+    net = tf.keras.layers.Dropout(0.5)(net)
+    preds = tf.keras.layers.Dense(num_categories, activation="softmax")(net)
+    model = tf.keras.Model(base_model.input, preds)
 
 
 # Ensure input dtype is tf.float32
