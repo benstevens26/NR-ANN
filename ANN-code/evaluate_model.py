@@ -17,15 +17,16 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
 )
-from feature_preprocessing import get_dataloaders_cf4, get_dataloaders_ar_cf4
-from models import LENRI_CF4_1, LENRI_Ar_CF4_1
+from feature_preprocessing import get_dataloaders_cf4, get_dataloaders_ar_cf4, get_dataloaders_cf4_biased
+from models import LENRI_CF4_1, LENRI_Ar_CF4_1, LENRI_CF4_2, LENRI_Ar_CF4_2
 
 # Toggle binary classification mode
-BINARY = False  # Set to True for binary classification (C vs. F), False for multi-class (C, F, Ar)
+BINARY = True  # Set to True for binary classification (C vs. F), False for multi-class (C, F, Ar)
+biased = False
 
-model_path = "LENRI_Ar_CF4_1_opt.pth"
-features_path = "ANN-code/Data/features_Ar_CF4_processed.csv"
-save_path = "ANN-code/Data/LENRI-Ar-CF4-1"
+model_path = "LENRI_CF4_2_opt.pth"
+features_path = "ANN-code/Data/features_CF4_2_processed.csv"
+save_path = "ANN-code/Data/LENRI-CF4-2"
 
 # Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,12 +34,15 @@ print(f"Using device: {device}")
 
 # Load test set
 if BINARY:
-    _, _, test_loader = get_dataloaders_cf4(features_path, batch_size=32)
+    if biased:
+        _, _, test_loader = get_dataloaders_cf4_biased(features_path, batch_size=32)
+    else:
+        _, _, test_loader = get_dataloaders_cf4(features_path, batch_size=32)
 else:
     _, _, test_loader = get_dataloaders_ar_cf4(features_path, batch_size=32)
 
 # Load trained model
-model = LENRI_Ar_CF4_1().to(device)
+model = LENRI_CF4_2().to(device)
 checkpoint = torch.load(model_path, map_location=device)
 model.load_state_dict(checkpoint["model_state_dict"])
 print("Loaded Hyperparameters:", checkpoint["hyperparameters"])
@@ -136,6 +140,11 @@ def plot_roc_curve(labels, probs):
         # Binary classification: Compute ROC for class "F" (index 1)
         fpr, tpr, _ = roc_curve(labels, probs[:, 1])
         roc_auc = auc(fpr, tpr)
+        
+        print(roc_auc)
+        # Save fpr and tpr to CSV
+        roc_data = pd.DataFrame({"False Positive Rate": fpr, "True Positive Rate": tpr})
+        roc_data.to_csv(f"roc_curve_data.csv", index=False)
 
         plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}", color="blue")
         plt.plot([0, 1], [0, 1], linestyle="--", color="gray")  # Random classifier line
@@ -178,7 +187,7 @@ else:
     print("Recall per class:", recall_score(labels, preds, average=None))
     print("F1 Score per class:", f1_score(labels, preds, average=None))
 
-# plot_confusion_matrix(labels, preds)
-# plot_confidence_distribution(probs)
-# plot_roc_curve(labels, probs)
+plot_confusion_matrix(labels, preds)
+plot_confidence_distribution(probs)
+plot_roc_curve(labels, probs)
 
