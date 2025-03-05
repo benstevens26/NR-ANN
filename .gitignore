@@ -174,3 +174,16 @@ notebooks/Features_Ar_CF4_1_viz/
 notebooks/Features_CF4_1_viz/
 ANN-code/.DS_Store
 
+LENRI_Ar_CF4_1_opt.pth
+LENRI_Ar_CF4_2_opt.pth
+
+LENRI_CF4_1_opt.pth
+LENRI_CF4_2_opt.pth
+
+LENRI_CF4_old_opt.pth
+CoNNCR-R_predictions_1.csv
+roc_curve_data_LENRI.csv
+roc_curve_data_miniCoNNCR.csv
+ANN-code/matched_file_paths_Ar_CF4.csv
+
+notebooks
