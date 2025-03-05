@@ -51,6 +51,7 @@ def tf_load_and_process(file_path):
     # Wrap the python function
     image, label = tf.py_function(func=load_and_process, inp=[file_path], Tout=[tf.float32, tf.int32])
     image.set_shape((224, 224, 3))
+    label.set_shape(())
     return image, label
 
 
@@ -140,9 +141,6 @@ print(
       """
 )
 
-# m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
-# example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
-
 if use_working_version:
     if use_preprocessed:
         full_dataset = tf.data.Dataset.from_generator(
@@ -153,6 +151,8 @@ if use_working_version:
         )
         )
     else:
+        m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
+        example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
         full_dataset = tf.data.Dataset.from_generator(
             lambda: load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, 3),
             output_signature=(
@@ -169,8 +169,8 @@ else:  # Tensor slice approach:
     full_dataset = tf.data.Dataset.from_tensor_slices(file_list)
     full_dataset = full_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
     full_dataset = full_dataset.shuffle(buffer_size=len(file_list))
-    full_dataset = full_dataset.batch(batch_size, drop_remainder=True)
-    full_dataset = full_dataset.prefetch(tf.data.AUTOTUNE)
+    # full_dataset = full_dataset.batch(batch_size, drop_remainder=True)
+    # full_dataset = full_dataset.prefetch(tf.data.AUTOTUNE)
 
 #############################################################
 print(
@@ -182,31 +182,15 @@ print(
 )
 
 dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
-train_size = int(0.7 * dataset_size)
-val_size = int(0.15 * dataset_size)
-test_size = dataset_size - train_size - val_size  # Ensure all data is used
+train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
+val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
+test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
-train_dataset = full_dataset.take(train_size).repeat() # First 70%
+train_dataset = full_dataset.take(train_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # First 70%
 remaining = full_dataset.skip(train_size)  # Remaining 30%
-val_dataset = remaining.take(val_size) # Next 15%
-test_dataset = remaining.skip(val_size) # Final 15%
+val_dataset = remaining.take(val_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Next 15%
+test_dataset = remaining.skip(val_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Final 15%
 
-
-# print(train_dataset.take(1))
-
-print(
-    """
-      -=+=-
-      Checkpoint #3
-      -=+=-
-      """
-)
-
-# Supposedly these lines will optimise the loading: https://www.tensorflow.org/guide/keras/preprocessing_layers
-AUTOTUNE = tf.data.AUTOTUNE
-
-train_dataset = train_dataset.cache().prefetch(buffer_size=AUTOTUNE)
-val_dataset = val_dataset.cache().prefetch(buffer_size=AUTOTUNE)
 
 print(
     """
@@ -312,26 +296,6 @@ print(
       """
 )
 
-# # Split into 70% train, 15% validation, 15% test
-# train_ratio = 0.70
-# validation_ratio = 0.15
-# test_ratio = 0.15
-
-# X_train, X_test, y_train, y_test = train_test_split(
-#     X, y, test_size=1 - train_ratio, random_state=42
-# )
-
-# X_val, X_test, y_val, y_test = train_test_split(
-#     X_test,
-#     y_test,
-#     test_size=test_ratio / (test_ratio + validation_ratio),
-#     random_state=42,
-# )
-
-## Preprocessing input
-# X_train = preprocess_input(np.array(X_train))
-# X_test = preprocess_input(np.array(X_test))
-# X_val = preprocess_input(np.array(X_val))
 
 epochs = 40
 
@@ -350,10 +314,6 @@ print(
 )
 
 
-# for sample in train_dataset.take(1): # doesn't work
-#     print(sample)
-#     plt.imshow(sample[0])
-#     plt.savefig("test",dpi=200)
 
 
 early_stopping = keras.callbacks.EarlyStopping(
