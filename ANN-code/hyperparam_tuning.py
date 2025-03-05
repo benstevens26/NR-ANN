@@ -16,9 +16,10 @@ import optuna
 from feature_preprocessing import get_dataloaders_cf4, get_dataloaders_ar_cf4
 
 # Toggle binary classification mode
-BINARY = False  # Set to False for multi-class (C, F, Ar)
-features_path = "ANN-code/Data/features_Ar_CF4_processed.csv"
+BINARY = True  # Set to False for multi-class (C, F, Ar)
+features_path = "ANN-code/Data/features_CF4_2_processed.csv"
 num_classes = 2 if BINARY else 3  # Adjust number of output classes
+input_size = 18  # Number of input features
 
 def save_best_model(model, trial):
     """Saves the best model with its hyperparameters."""
@@ -32,7 +33,7 @@ def save_best_model(model, trial):
 class LENRI(nn.Module):
     def __init__(
         self,
-        input_size=9,
+        input_size=input_size,
         hidden_layers=[32, 16, 8],
         dropout_rate=0.2,
         num_classes=num_classes,
@@ -119,10 +120,10 @@ def train_model(
                 print("Early stopping triggered. Training halted.")
                 break
 
-        if epoch % 10 == 0:
-            trial.report(val_loss, step=epoch)
-            if trial.should_prune():
-                raise optuna.exceptions.TrialPruned()
+
+        trial.report(val_loss, step=epoch)
+        if trial.should_prune():
+            raise optuna.exceptions.TrialPruned()
     
     return best_val_loss
 
@@ -130,13 +131,12 @@ def objective(trial):
     """Objective function for Optuna hyperparameter tuning using validation loss."""
     
     learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
-    batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
+    batch_size = trial.suggest_categorical("batch_size", [32, 64])
     dropout_rate = trial.suggest_float("dropout_rate", 0.05, 0.3)
+    weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
     
     num_layers = trial.suggest_int("num_layers", 2, 5)
-    hidden_layers = [trial.suggest_int(f"n_units_layer_{i}", 32, 128, log=True) for i in range(num_layers)]
-    
-    weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
+    hidden_layers = [trial.suggest_int(f"n_units_layer_{i}", 16, 128, log=True) for i in range(num_layers)]
 
     val_loss = train_model(
         learning_rate, batch_size, dropout_rate,
@@ -157,7 +157,7 @@ def objective_simple(trial):
     dropout_rate = trial.suggest_float("dropout_rate", 0.05, 0.3)
     weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
 
-    hidden_layers = [32, 16] # choose hidden layers
+    hidden_layers = [64, 48, 32] # choose hidden layers
 
     val_loss = train_model(
         learning_rate, batch_size, dropout_rate,
@@ -171,7 +171,7 @@ def objective_simple(trial):
     return val_loss
 
 study = optuna.create_study(direction="minimize")
-study.optimize(objective_simple, n_trials=50)
+study.optimize(objective_simple, n_trials=30)
 
 print("Best trial:", study.best_trial.number)
 print("Best hyperparameters:", study.best_params)
