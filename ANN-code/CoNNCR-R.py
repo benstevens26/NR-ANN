@@ -186,7 +186,7 @@ train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
 val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
 test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
-train_dataset = full_dataset.take(train_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # First 70%
+train_dataset = full_dataset.take(train_size).repeat().batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # First 70%
 remaining = full_dataset.skip(train_size)  # Remaining 30%
 val_dataset = remaining.take(val_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Next 15%
 test_dataset = remaining.skip(val_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Final 15%
@@ -297,7 +297,7 @@ print(
 )
 
 
-epochs = 40
+epochs = 20
 
 train_start_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
 
@@ -317,7 +317,7 @@ print(
 
 
 early_stopping = keras.callbacks.EarlyStopping(
-    monitor="val_loss", patience=5, restore_best_weights=True
+    monitor="val_accuracy", patience=5, restore_best_weights=True
 )
 
 # load in epoch 1
@@ -328,6 +328,7 @@ history = model.fit(
     epochs=epochs,
     # initial_epoch=1,
     steps_per_epoch=(train_size // batch_size),
+    validation_steps = (val_size // batch_size),
     batch_size=batch_size,
     validation_data=val_dataset,
     verbose=1,
@@ -342,6 +343,8 @@ print(
       -=+=-
       """
 )
+
+print(f"history stuff: {history.history.keys()}")
 
 train_end_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
 
