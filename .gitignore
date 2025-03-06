@@ -178,3 +178,4 @@ ANN-code/CoNNCR-R_predictions_1.csv
 ANN-code/CoNNCR-R_train_val_predictions_1.csv
 ANN-code/roc_curve_data.csv
 *.png
+*.csv
