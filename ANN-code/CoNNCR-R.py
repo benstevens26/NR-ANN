@@ -176,7 +176,7 @@ else:  # Tensor slice approach:
 print(
     """
       -=+=-
-      Checkpoint #2.75
+      Checkpoint #3
       -=+=-
       """
 )

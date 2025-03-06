@@ -3,18 +3,26 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from cnn_processing import load_data_yield
 import performance as pf
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, roc_curve, auc
+from sklearn.metrics import (
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_curve,
+    auc,
+)
 from cnn_processing import noise_adder, smooth_operator, bin_image
 import os
 import csv
 import pandas as pd
 
 
-
-
-model = tf.keras.models.load_model("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/test/test_CoNNCR-R.keras", custom_objects={"softmax_v2": tf.keras.activations.softmax})
+model = tf.keras.models.load_model(
+    "/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/test/test_CoNNCR-R.keras",
+    custom_objects={"softmax_v2": tf.keras.activations.softmax},
+)
 small = False
-if True: # load model and dataset
+if True:  # load model and dataset
     base_dirs = [
         "/vols/lz/tmarley/GEM_ITO/run/im0/C",
         "/vols/lz/tmarley/GEM_ITO/run/im0/F",
@@ -37,7 +45,9 @@ if True: # load model and dataset
         f"{dark_dir}/quest_std_dark_{dark_list_number}.npy"
     )
     m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
-    example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned[:1], dtype=tf.float32)
+    example_dark_tensor = tf.convert_to_tensor(
+        example_dark_list_unbinned[:1], dtype=tf.float32
+    )
     full_dataset = tf.data.Dataset.from_generator(
         lambda: load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, 3),
         output_signature=(
@@ -46,7 +56,7 @@ if True: # load model and dataset
         ),
     )
 
-    dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
+    dataset_size = 99366  # 99989 without the  # CHANGE DEPENDING ON DATA USED
     train_size = int(0.7 * dataset_size)
     val_size = int(0.15 * dataset_size)
     test_size = dataset_size - train_size - val_size  # Ensure all data is used
@@ -54,7 +64,9 @@ if True: # load model and dataset
     # train_dataset = full_dataset.take(train_size).cache("/vols/lz/twatson/CNN_cache").repeat().batch(batch_size, drop_remainder=True) # First 70%
     # remaining = full_dataset.skip(train_size)  # Remaining 30%
     # val_dataset = full_dataset.skip(train_size).take(val_size).cache("/vols/lz/twatson/CNN_cache").batch(batch_size, drop_remainder=False) # Next 15%
-    test_dataset = full_dataset.skip(train_size + val_size).batch(batch_size, drop_remainder=True) # Final 15%
+    test_dataset = full_dataset.skip(train_size + val_size).batch(
+        batch_size, drop_remainder=True
+    )  # Final 15%
     if small:
         test_dataset = test_dataset.take(3)
     test_dataset = test_dataset.prefetch(tf.data.AUTOTUNE)
@@ -63,25 +75,29 @@ if True: # load model and dataset
 # need to get a filename list and shuffle it in the same way #
 ##############################################################
 
-def preprocess_file_path(image,m_dark=m_dark_tensor,example_dark_list=example_dark_tensor):
+
+def preprocess_file_path(
+    image, m_dark=m_dark_tensor, example_dark_list=example_dark_tensor
+):
     image1 = noise_adder(image, m_dark=m_dark, example_dark_list=example_dark_list)
     image2 = smooth_operator(image1)
     image3 = image2.astype(np.float32)
     max_val = np.max(image3)
     if max_val > 0:
-        image3 = 255*image3 / max_val
+        image3 = 255 * image3 / max_val
     image3 = np.repeat(image3[:, :, np.newaxis], 3, axis=-1)
-    image4 = tf.image.resize_with_pad(image3,224,224)
+    image4 = tf.image.resize_with_pad(image3, 224, 224)
     image5 = tf.keras.applications.vgg16.preprocess_input(image4)
-    image5/=np.max(abs(image5))
+    image5 /= np.max(abs(image5))
     image5 = tf.expand_dims(image5, axis=0)
     return image5
 
+
 def get_file_list(seed=77):
     uncropped_error = np.loadtxt(
-    "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
-    delimiter=",",
-    dtype=str,
+        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
+        delimiter=",",
+        dtype=str,
     )
     min_dim_error = np.loadtxt(
         "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/min_dim_error.csv",
@@ -95,13 +111,18 @@ def get_file_list(seed=77):
     file_list = []
     for base_dir in base_dirs:
         for root, dirs, files in os.walk(base_dir):
-            files = [f for f in files if (f.endswith(".npy") and os.path.join(root, f) not in errors)]
+            files = [
+                f
+                for f in files
+                if (f.endswith(".npy") and os.path.join(root, f) not in errors)
+            ]
             file_list.extend([os.path.join(root, file) for file in files])
 
     file_list.sort()
     np.random.seed(seed)
     np.random.shuffle(file_list)
     return file_list
+
 
 file_list = get_file_list()
 test_file_list = file_list[-test_size:]
@@ -114,10 +135,10 @@ other_file_list = file_list[:-test_size]
 #     print(f"prediction: {prediction[0]}")
 
 
-with open('CoNNCR-R_predictions_1.csv', mode='w', newline='') as file:
+with open("CoNNCR-R_predictions_1.csv", mode="w", newline="") as file:
     writer = csv.writer(file)
     # Write header row
-    writer.writerow(['file_path', 'prediction'])
+    writer.writerow(["file_path", "prediction"])
 
     for file_path in test_file_list:
         image = np.load(file_path)
@@ -133,8 +154,10 @@ df = pd.read_csv("/vols/lz/twatson/ANN/NR-ANN/ANN-code/CoNNCR-R_predictions_1.cs
 true_labels = []
 predicted_probs = []
 for index, row in df.iterrows():
-    file_path = row['file_path']
-    prediction = np.array(row['prediction'].strip('[]').split())  # Convert the string to an array
+    file_path = row["file_path"]
+    prediction = np.array(
+        row["prediction"].strip("[]").split()
+    )  # Convert the string to an array
     prediction = prediction.astype(float)
 
     true_label = 0 if "C" in os.path.basename(file_path) else 1
@@ -151,30 +174,27 @@ fpr, tpr, thresholds = roc_curve(true_labels, predicted_probs)
 roc_auc = auc(fpr, tpr)
 
 plt.figure()
-plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {roc_auc:.2f})")
+plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Receiver Operating Characteristic (ROC) Curve')
-plt.legend(loc='lower right')
-plt.savefig("ROC",dpi=300)
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("Receiver Operating Characteristic (ROC) Curve")
+plt.legend(loc="lower right")
+plt.savefig("ROC", dpi=300)
 plt.show()
 
-roc_data = pd.DataFrame({
-    'fpr': fpr,
-    'tpr': tpr
-})
+roc_data = pd.DataFrame({"fpr": fpr, "tpr": tpr})
 
 # Save the DataFrame to a CSV file
-roc_data.to_csv('roc_curve_data.csv', index=False)
+roc_data.to_csv("roc_curve_data.csv", index=False)
 
 
-with open('CoNNCR-R_train_val_predictions_1.csv', mode='w', newline='') as file:
+with open("CoNNCR-R_train_val_predictions_1.csv", mode="w", newline="") as file:
     writer = csv.writer(file)
     # Write header row
-    writer.writerow(['file_path', 'prediction'])
+    writer.writerow(["file_path", "prediction"])
 
     for file_path in other_file_list:
         image = np.load(file_path)
@@ -183,7 +203,6 @@ with open('CoNNCR-R_train_val_predictions_1.csv', mode='w', newline='') as file:
 
         # Write data to CSV file
         writer.writerow([file_path, prediction[0]])
-
 
 
 # print("starting evaluation")

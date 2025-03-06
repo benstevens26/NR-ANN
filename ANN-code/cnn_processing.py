@@ -324,7 +324,7 @@ def tf_smooth_operator(image, smoothing_sigma=3.5):
 
     # Apply Gaussian filtering.
     try:
-        smoothed = tfa.image.gaussian_filter2d( # type: ignore
+        smoothed = tfa.image.gaussian_filter2d(  # type: ignore
             image, filter_shape=[kernel_size, kernel_size], sigma=smoothing_sigma
         )
     except ModuleNotFoundError as e:
@@ -502,7 +502,7 @@ def parse_function_2(
         # Normalize and stack channels
         max_val = np.max(image)
         if max_val > 0:
-            image = 255*image / max_val
+            image = 255 * image / max_val
         else:
             print("Warning: Image max value is 0, potential issue in normalization.")
 
@@ -523,8 +523,7 @@ def parse_function_2(
     # Apply VGG16 preprocessing
     image = preprocess_input(image)
     # scale back to [-1, 1]
-    image/=np.max(abs(image))
-
+    image /= np.max(abs(image))
 
     # Convert to TensorFlow tensors
     image = tf.convert_to_tensor(image, dtype=tf.float32)
@@ -638,7 +637,11 @@ def load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, channels=1):
     file_list = []
     for base_dir in base_dirs:
         for root, dirs, files in os.walk(base_dir):
-            files = [f for f in files if (f.endswith(".npy") and os.path.join(root, f) not in errors)]
+            files = [
+                f
+                for f in files
+                if (f.endswith(".npy") and os.path.join(root, f) not in errors)
+            ]
             file_list.extend([os.path.join(root, file) for file in files])
 
     file_list.sort()
@@ -659,6 +662,7 @@ def load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, channels=1):
     #         tf.ensure_shape(label, ()),
     #     )
     # )
+
 
 def yield_preprocessed_data(base_dirs):
     # Get all the .npy files from base_dirs
@@ -687,7 +691,6 @@ def get_file_list(base_dirs):
             file_list.extend([os.path.join(root, file) for file in files])
     file_list.sort()
     return file_list
-
 
 
 def load_data_yield_bb(base_dirs, channels=3):
