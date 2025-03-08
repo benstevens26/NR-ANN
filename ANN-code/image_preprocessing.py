@@ -5,7 +5,6 @@ Module that contains standalone functions for image preprocessing.
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from convert_sim_ims import convert_im, get_dark_sample
-from feature_extraction import extract_bounding_box
 
 
 def gaussian_smoothing(image, smoothing_sigma=3.5):
@@ -82,6 +81,7 @@ def uncropped_check(
     """
     # Get the dimensions of the image
     max_y, max_x = image.shape
+    from feature_extraction import extract_bounding_box
 
     if method == "max_comparison":
         # Determine a threshold intensity to avoid floating point errors
