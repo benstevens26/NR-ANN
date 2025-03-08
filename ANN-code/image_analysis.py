@@ -4,7 +4,8 @@ Module that contains standalone functions for imaging analysis.
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+from skimage.measure import block_reduce
+import plotly.graph_objects as go
 
 def plot_axis(image, principal_axis, centroid):
     """
@@ -220,4 +221,141 @@ def plot_3d(image: np.ndarray) -> None:
     ax.set_title("3D Intensity Plot")
 
     # Show the plot
+    plt.show()
+
+def plot_voxels(R, downsample_factor=4):
+
+    # Find nonzero indices
+    nonzero_indices = np.nonzero(R)
+
+    # Bounding box limits
+    xmin, xmax = nonzero_indices[0].min(), nonzero_indices[0].max()
+    ymin, ymax = nonzero_indices[1].min(), nonzero_indices[1].max()
+    zmin, zmax = nonzero_indices[2].min(), nonzero_indices[2].max()
+
+    # Crop R to bounding box
+    R_cropped = R[xmin:xmax+1, ymin:ymax+1, zmin:zmax+1]
+
+    factor = downsample_factor
+    R_downsampled = block_reduce(R_cropped, block_size=(factor, factor, factor), func=np.max)
+
+    voxel_size = 0.019  # Each voxel is 0.019mm
+
+    fig = go.Figure(data=go.Volume(
+        x=(np.linspace(xmin, xmax, R_downsampled.shape[0]) * voxel_size).repeat(R_downsampled.shape[1] * R_downsampled.shape[2]),
+        y=(np.tile(np.linspace(ymin, ymax, R_downsampled.shape[1]).repeat(R_downsampled.shape[2]), R_downsampled.shape[0]) * voxel_size),
+        z=(np.tile(np.linspace(zmin, zmax, R_downsampled.shape[2]), R_downsampled.shape[0] * R_downsampled.shape[1]) * voxel_size),
+        value=R_downsampled.flatten(),
+        opacity=0.1,
+        surface_count=15,
+        colorscale='Viridis',
+        colorbar=dict(title='Intensity')
+    ))
+
+    fig.update_layout(scene=dict(
+        xaxis_title='X [mm]',
+        yaxis_title='Y [mm]',
+        zaxis_title='Z [mm]',
+        aspectmode='data'
+    ), title='Downsampled 3D Volume Plot')
+
+    fig.show()
+
+
+def plot_voxels_axis(R, downsample_factor=4, principal_axis=None, centroid=None):
+    """
+    Plots downsampled voxel intensities and optionally a principal axis and centroid.
+
+    Parameters:
+        R (np.ndarray): 3D intensity matrix.
+        downsample_factor (int): Factor by which the voxel matrix is downsampled.
+        principal_axis (np.ndarray, optional): Principal axis vector.
+        centroid (np.ndarray, optional): Centroid coordinates of the voxel distribution.
+    """
+
+    # Find nonzero indices
+    nonzero_indices = np.nonzero(R)
+
+    # Bounding box limits
+    xmin, xmax = nonzero_indices[0].min(), nonzero_indices[0].max()
+    ymin, ymax = nonzero_indices[1].min(), nonzero_indices[1].max()
+    zmin, zmax = nonzero_indices[2].min(), nonzero_indices[2].max()
+
+    # Crop R to bounding box
+    R_cropped = R[xmin:xmax+1, ymin:ymax+1, zmin:zmax+1]
+
+    factor = downsample_factor
+    R_downsampled = block_reduce(R_cropped, block_size=(factor, factor, factor), func=np.max)
+
+
+    fig = go.Figure(data=go.Volume(
+        x=np.linspace(xmin, xmax, R_downsampled.shape[0]).repeat(R_downsampled.shape[1] * R_downsampled.shape[2]),
+        y=np.tile(np.linspace(ymin, ymax, R_downsampled.shape[1]).repeat(R_downsampled.shape[2]), R_downsampled.shape[0]),
+        z=np.tile(np.linspace(zmin, zmax, R_downsampled.shape[2]), R_downsampled.shape[0] * R_downsampled.shape[1]),
+        value=R_downsampled.flatten(),
+        opacity=0.1,
+        surface_count=15,
+        colorscale='Viridis',
+        colorbar=dict(title='Intensity')
+    ))
+
+    fig.update_layout(scene=dict(
+        xaxis_title='X',
+        yaxis_title='Y',
+        zaxis_title='Z',
+        aspectmode='data'
+    ), title='Downsampled 3D Volume Plot')
+
+
+    # Plot principal axis if provided
+    if principal_axis is not None and centroid is not None:
+        scale = np.linalg.norm(R.shape) / 2
+        line_points = np.array([
+            centroid - principal_axis * scale,
+            centroid + principal_axis * scale
+        ])
+        fig.add_trace(go.Scatter3d(
+            x=line_points[:, 0], y=line_points[:, 1], z=line_points[:, 2],
+            mode='lines',
+            line=dict(color='red', width=8),
+            name='Principal Axis'
+        ))
+
+        # Plot centroid
+        fig.add_trace(go.Scatter3d(
+            x=[centroid[0]], y=[centroid[1]], z=[centroid[2]],
+            mode='markers',
+            marker=dict(color='blue', size=8),
+            name='Centroid'
+        ))
+
+    fig.show()
+
+
+
+
+def plot_3d_projections(cam_image, ito_image):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot test_cam on the xy plane
+    x_cam, y_cam = np.meshgrid(np.arange(cam_image.shape[1]), np.arange(cam_image.shape[0]))
+    ax.plot_surface(x_cam, y_cam, np.zeros_like(cam_image), rstride=1, cstride=1, facecolors=plt.cm.viridis(cam_image / np.max(cam_image)), shade=False)
+
+    # Plot test_ito on the xz plane
+    x_ito, z_ito = np.meshgrid(np.arange(ito_image.shape[1]), np.arange(ito_image.shape[0]))
+    ax.plot_surface(x_ito, np.zeros_like(ito_image), z_ito, rstride=1, cstride=1, facecolors=plt.cm.viridis(ito_image / np.max(ito_image)), shade=False)
+
+    # Plot a black yz surface with white text "No Readout"
+    y_no_readout, z_no_readout = np.meshgrid(np.arange(ito_image.shape[0]), np.arange(ito_image.shape[0]))
+    ax.plot_surface(np.zeros_like(y_no_readout), y_no_readout, z_no_readout, color='#440154', shade=False)
+
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
+
+    # Rotate the plot for better visibility
+    ax.view_init(elev=30, azim=45)
+
     plt.show()
