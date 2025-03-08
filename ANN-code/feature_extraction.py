@@ -9,7 +9,7 @@ from scipy.interpolate import griddata
 from scipy.interpolate import splprep, splev
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-
+from skimage.filters import threshold_otsu
 
 def extract_sum_intensity(image):
     """
@@ -377,3 +377,147 @@ def extract_length(
     recoil_length = max_t - min_t
 
     return recoil_length
+
+
+def subdivxy(im,xscale,yscale):
+    im_large = np.zeros((im.shape[0]*yscale, im.shape[1]*xscale))
+    for i in np.arange(xscale):
+        for j in np.arange(yscale):
+            im_large[j::yscale,i::xscale] = im
+
+    return im_large
+
+def preprocess_3d(cam_image, ito_image):
+    """
+    3d preprocessing
+    """
+    from image_preprocessing import gaussian_smoothing
+    # smooth and threshold cam_image
+    cam_image = gaussian_smoothing(cam_image, 3.5)
+    cam_threshold = threshold_otsu(cam_image)
+    cam_above_threshold = cam_image.copy()
+    cam_above_threshold[cam_above_threshold < cam_threshold] = 0
+    cam_image = cam_above_threshold
+
+    # subdivide cam and ito
+    cam_image = subdivxy(cam_image, 2, 2)
+    ito_image = subdivxy(ito_image, 42, 13)
+
+    # smooth and threshold ito_image
+    ito_image = gaussian_smoothing(ito_image, 14)
+    ito_threshold = threshold_otsu(ito_image)
+    ito_above_threshold = ito_image.copy()
+    ito_above_threshold[ito_above_threshold < ito_threshold] = 0
+    ito_image = ito_above_threshold
+
+    # pad cam or ito if x dims don't match
+
+    cam_x_pixels = cam_image.shape[1]
+    ito_x_pixels = ito_image.shape[1]
+
+    if cam_x_pixels > ito_x_pixels:
+        pad_amount = (cam_x_pixels - ito_x_pixels) // 2
+        ito_image = np.pad(ito_image, ((0, 0), (pad_amount, cam_x_pixels - ito_x_pixels - pad_amount)), mode='constant')
+    elif ito_x_pixels > cam_x_pixels:
+        pad_amount = (ito_x_pixels - cam_x_pixels) // 2
+        cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
+
+    return cam_image, ito_image
+
+
+
+def extract_R(cam_image, ito_image, preprocess=True):
+    """
+    extract voxel reconstruction R from cam_image (NOISY) and ito_image
+    """
+    if preprocess:
+        from image_preprocessing import gaussian_smoothing
+        # smooth and threshold cam_image
+        cam_image = gaussian_smoothing(cam_image, 3.5)
+        cam_threshold = threshold_otsu(cam_image)
+        cam_above_threshold = cam_image.copy()
+        cam_above_threshold[cam_above_threshold < cam_threshold] = 0
+        cam_image = cam_above_threshold
+
+        # subdivide cam and ito
+        cam_image = subdivxy(cam_image, 2, 2)
+        ito_image = subdivxy(ito_image, 42, 13)
+
+        # smooth and threshold ito_image
+        ito_image = gaussian_smoothing(ito_image, 14)
+        ito_threshold = threshold_otsu(ito_image)
+        ito_above_threshold = ito_image.copy()
+        ito_above_threshold[ito_above_threshold < ito_threshold] = 0
+        ito_image = ito_above_threshold
+
+        # pad cam or ito if x dims don't match
+
+        cam_x_pixels = cam_image.shape[1]
+        ito_x_pixels = ito_image.shape[1]
+
+        if cam_x_pixels > ito_x_pixels:
+            pad_amount = (cam_x_pixels - ito_x_pixels) // 2
+            ito_image = np.pad(ito_image, ((0, 0), (pad_amount, cam_x_pixels - ito_x_pixels - pad_amount)), mode='constant')
+        elif ito_x_pixels > cam_x_pixels:
+            pad_amount = (ito_x_pixels - cam_x_pixels) // 2
+            cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
+
+
+    assert cam_image.shape[1] == ito_image.shape[1] # check
+
+    R = np.einsum('ik,jk->kij', cam_image, ito_image)
+
+    return R
+        
+
+def extract_axis_3d(R):
+    """
+    Extracts the principal axis and centroid from a 3D intensity voxel matrix using SVD.
+
+    Parameters:
+        R (np.ndarray): 3D numpy array of voxel intensities with shape (x, y, z).
+
+    Returns:
+        principal_axis (np.ndarray): Principal axis vector.
+        centroid (np.ndarray): Intensity-weighted centroid coordinates.
+    """
+    # Extract coordinates and intensities
+    x_coords, y_coords, z_coords = np.nonzero(R)
+    intensities = R[x_coords, y_coords, z_coords]
+    coords = np.vstack((x_coords, y_coords, z_coords)).T
+
+    # Compute intensity-weighted centroid
+    centroid = np.average(coords, axis=0, weights=intensities)
+
+    # Center coordinates by subtracting centroid
+    coords_centered = coords - centroid
+
+    # Compute weighted covariance matrix
+    cov_matrix = np.cov(coords.T, aweights=intensities)
+
+    # Eigen-decomposition
+    eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+
+    # Extract principal axis
+    principal_axis = eigenvectors[:, np.argmax(eigenvalues)]
+
+    if principal_axis[1] < 0:
+        principal_axis[1] = -principal_axis[1]
+
+    return principal_axis, centroid
+
+
+def extract_recoil_angle_3d(principal_axis):
+    """
+    Calculates the recoil angle relative to the +x axis, assuming that v_x is +ve.
+
+    Parameters:
+        principal_axis (np.ndarray): Principal axis vector.
+
+    Returns:
+        alpha (float): Angle in radians between the principal axis and +x axis.
+    """
+    v_x, v_y, v_z = principal_axis
+    magnitude = np.linalg.norm(principal_axis)
+    alpha = np.arccos(v_x / magnitude)
+    return alpha
