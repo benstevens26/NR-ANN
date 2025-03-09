@@ -5,9 +5,9 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import tensorflow as tf
 
-physical_devices = tf.config.list_physical_devices("GPU")
-for gpu in physical_devices:
-    tf.config.experimental.set_memory_growth(gpu, True)
+# physical_devices = tf.config.list_physical_devices("GPU")
+# for gpu in physical_devices:
+#     tf.config.experimental.set_memory_growth(gpu, True)
 import datetime
 import glob
 import random
@@ -79,7 +79,7 @@ if gpus:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, False)
             print(f"Using GPU: {gpus[0].name}")
-            memory_info = tf.config.experimental.get_memory_info(gpu.name)
+            memory_info = tf.config.experimental.get_memory_info("GPU:0")
             current_mb = memory_info['current'] / (1024 ** 2)
             peak_mb = memory_info['peak'] / (1024 ** 2)
             print(f"GPU {gpu.name}:")
@@ -168,7 +168,7 @@ else:  # Tensor slice approach:
     # Create a dataset from the file list
     full_dataset = tf.data.Dataset.from_tensor_slices(file_list)
     full_dataset = full_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
-    full_dataset = full_dataset.shuffle(buffer_size=len(file_list))
+    full_dataset = full_dataset.shuffle(buffer_size=len(file_list),seed=77)
     # full_dataset = full_dataset.batch(batch_size, drop_remainder=True)
     # full_dataset = full_dataset.prefetch(tf.data.AUTOTUNE)
 
@@ -186,7 +186,7 @@ train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
 val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
 test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
-train_dataset = full_dataset.take(train_size).repeat().batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # First 70%
+train_dataset = full_dataset.take(train_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # First 70%
 remaining = full_dataset.skip(train_size)  # Remaining 30%
 val_dataset = remaining.take(val_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Next 15%
 test_dataset = remaining.skip(val_size).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Final 15%
@@ -297,9 +297,7 @@ print(
 )
 
 
-epochs = 20
-
-train_start_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+epochs = 30
 
 print("After loading dataset")
 print(train_dataset)
@@ -322,14 +320,18 @@ early_stopping = keras.callbacks.EarlyStopping(
 
 # load in epoch 1
 # model.load_weights("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v2/epoch-01.keras")
+# print(notavaraible)
+
+
+train_start_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
 
 history = model.fit(
     train_dataset,
     epochs=epochs,
     # initial_epoch=1,
-    steps_per_epoch=(train_size // batch_size),
-    validation_steps = (val_size // batch_size),
-    batch_size=batch_size,
+    # steps_per_epoch=(train_size // batch_size),
+    # validation_steps = (val_size // batch_size),
+    # batch_size=batch_size,
     validation_data=val_dataset,
     verbose=1,
     class_weight=None,  # look into changing this, might be good to
