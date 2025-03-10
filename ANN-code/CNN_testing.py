@@ -15,14 +15,15 @@ from cnn_processing import noise_adder, smooth_operator, bin_image
 import os
 import csv
 import pandas as pd
-
+from tqdm import tqdm
 
 model = tf.keras.models.load_model(
-    "/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/test/test_CoNNCR-R.keras",
+    "/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v3/CoNNCR-R.keras",
     custom_objects={"softmax_v2": tf.keras.activations.softmax},
 )
 small = False
-if True:  # load model and dataset
+unscaled = False
+if False:  # load model and dataset
     base_dirs = [
         "/vols/lz/tmarley/GEM_ITO/run/im0/C",
         "/vols/lz/tmarley/GEM_ITO/run/im0/F",
@@ -70,43 +71,41 @@ if True:  # load model and dataset
     if small:
         test_dataset = test_dataset.take(3)
     test_dataset = test_dataset.prefetch(tf.data.AUTOTUNE)
+    def preprocess_file_path(
+        image, m_dark=m_dark_tensor, example_dark_list=example_dark_tensor
+    ):
+        image1 = noise_adder(image, m_dark=m_dark, example_dark_list=example_dark_list)
+        image2 = smooth_operator(image1)
+        image3 = image2.astype(np.float32)
+        max_val = np.max(image3)
+        if max_val > 0:
+            image3 = 255 * image3 / max_val
+        image3 = np.repeat(image3[:, :, np.newaxis], 3, axis=-1)
+        image4 = tf.image.resize_with_pad(image3, 224, 224)
+        image5 = tf.keras.applications.vgg16.preprocess_input(image4)
+        image5 /= np.max(abs(image5))
+        image5 = tf.expand_dims(image5, axis=0)
+        return image5
 
 ##############################################################
 # need to get a filename list and shuffle it in the same way #
 ##############################################################
 
-
-def preprocess_file_path(
-    image, m_dark=m_dark_tensor, example_dark_list=example_dark_tensor
-):
-    image1 = noise_adder(image, m_dark=m_dark, example_dark_list=example_dark_list)
-    image2 = smooth_operator(image1)
-    image3 = image2.astype(np.float32)
-    max_val = np.max(image3)
-    if max_val > 0:
-        image3 = 255 * image3 / max_val
-    image3 = np.repeat(image3[:, :, np.newaxis], 3, axis=-1)
-    image4 = tf.image.resize_with_pad(image3, 224, 224)
-    image5 = tf.keras.applications.vgg16.preprocess_input(image4)
-    image5 /= np.max(abs(image5))
-    image5 = tf.expand_dims(image5, axis=0)
-    return image5
+if unscaled:
+    base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images_unscaled"]
+else:
+    base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images"]
 
 
-def get_file_list(seed=77):
-    uncropped_error = np.loadtxt(
-        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
-        delimiter=",",
-        dtype=str,
-    )
-    min_dim_error = np.loadtxt(
-        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/min_dim_error.csv",
-        delimiter=",",
-        dtype=str,
-    )
-    # Get all the .npy files from base_dirs
-    errors = np.concatenate((uncropped_error, min_dim_error))
+batch_size = 16
+dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
+train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
+val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
+test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
+
+
+def get_file_list(seed=77, base_dirs = base_dirs):
     # Get all the .npy files from base_dirs
     file_list = []
     for base_dir in base_dirs:
@@ -114,7 +113,7 @@ def get_file_list(seed=77):
             files = [
                 f
                 for f in files
-                if (f.endswith(".npy") and os.path.join(root, f) not in errors)
+                if (f.endswith(".npy"))
             ]
             file_list.extend([os.path.join(root, file) for file in files])
 
@@ -123,7 +122,7 @@ def get_file_list(seed=77):
     np.random.shuffle(file_list)
     return file_list
 
-
+# test_size = 10
 file_list = get_file_list()
 test_file_list = file_list[-test_size:]
 other_file_list = file_list[:-test_size]
@@ -135,74 +134,65 @@ other_file_list = file_list[:-test_size]
 #     print(f"prediction: {prediction[0]}")
 
 
-with open("CoNNCR-R_predictions_1.csv", mode="w", newline="") as file:
+
+
+
+with open("CoNNCR-R_predictions_v3.csv", mode="w", newline="") as file:
     writer = csv.writer(file)
     # Write header row
     writer.writerow(["file_path", "prediction"])
 
-    for file_path in test_file_list:
+    for file_path in tqdm(test_file_list):
         image = np.load(file_path)
-        image = preprocess_file_path(image)
-        prediction = model.predict(image)
+        image = np.expand_dims(image, axis=0)
+        # image = preprocess_file_path(image)
+        prediction = model.predict(image,verbose=0)
 
         # Write data to CSV file
         writer.writerow([file_path, prediction[0]])
 
 
-df = pd.read_csv("/vols/lz/twatson/ANN/NR-ANN/ANN-code/CoNNCR-R_predictions_1.csv")
+# df = pd.read_csv("/vols/lz/twatson/ANN/NR-ANN/ANN-code/CoNNCR-R_predictions_1.csv")
 
-true_labels = []
-predicted_probs = []
-for index, row in df.iterrows():
-    file_path = row["file_path"]
-    prediction = np.array(
-        row["prediction"].strip("[]").split()
-    )  # Convert the string to an array
-    prediction = prediction.astype(float)
+# true_labels = []
+# predicted_probs = []
+# for index, row in df.iterrows():
+#     file_path = row["file_path"]
+#     prediction = np.array(
+#         row["prediction"].strip("[]").split()
+#     )  # Convert the string to an array
+#     prediction = prediction.astype(float)
 
-    true_label = 0 if "C" in os.path.basename(file_path) else 1
+#     true_label = 0 if "C" in os.path.basename(file_path) else 1
 
-    prob_class_1 = prediction[1]  # Probabilities for class 1 (b)
+#     prob_class_1 = prediction[1]  # Probabilities for class 1 (b)
 
-    true_labels.append(true_label)
-    predicted_probs.append(prob_class_1)
+#     true_labels.append(true_label)
+#     predicted_probs.append(prob_class_1)
 
-true_labels = np.array(true_labels)
-predicted_probs = np.array(predicted_probs)
+# true_labels = np.array(true_labels)
+# predicted_probs = np.array(predicted_probs)
 
-fpr, tpr, thresholds = roc_curve(true_labels, predicted_probs)
-roc_auc = auc(fpr, tpr)
+# fpr, tpr, thresholds = roc_curve(true_labels, predicted_probs)
+# roc_auc = auc(fpr, tpr)
 
-plt.figure()
-plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {roc_auc:.2f})")
-plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("Receiver Operating Characteristic (ROC) Curve")
-plt.legend(loc="lower right")
-plt.savefig("ROC", dpi=300)
-plt.show()
+# plt.figure()
+# plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {roc_auc:.2f})")
+# plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+# plt.xlim([0.0, 1.0])
+# plt.ylim([0.0, 1.05])
+# plt.xlabel("False Positive Rate")
+# plt.ylabel("True Positive Rate")
+# plt.title("Receiver Operating Characteristic (ROC) Curve")
+# plt.legend(loc="lower right")
+# plt.savefig("ROC", dpi=300)
+# plt.show()
 
-roc_data = pd.DataFrame({"fpr": fpr, "tpr": tpr})
+# roc_data = pd.DataFrame({"fpr": fpr, "tpr": tpr})
 
-# Save the DataFrame to a CSV file
-roc_data.to_csv("roc_curve_data.csv", index=False)
+# # Save the DataFrame to a CSV file
+# roc_data.to_csv("roc_curve_data.csv", index=False)
 
-
-with open("CoNNCR-R_train_val_predictions_1.csv", mode="w", newline="") as file:
-    writer = csv.writer(file)
-    # Write header row
-    writer.writerow(["file_path", "prediction"])
-
-    for file_path in other_file_list:
-        image = np.load(file_path)
-        image = preprocess_file_path(image)
-        prediction = model.predict(image)
-
-        # Write data to CSV file
-        writer.writerow([file_path, prediction[0]])
 
 
 # print("starting evaluation")

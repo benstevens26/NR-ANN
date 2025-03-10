@@ -33,3 +33,6 @@ elif which == "both":
 
 
 plt.style.use('seaborn-v0_8-whitegrid')
+
+
+
