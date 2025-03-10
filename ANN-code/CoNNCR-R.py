@@ -32,6 +32,8 @@ from tensorflow.keras.layers import *  # type: ignore
 
 use_working_version = False
 use_preprocessed = True
+use_unscaled = True
+finetune = True
 
 print(
     """
@@ -103,7 +105,10 @@ print(
 # Define base directories and batch size
 # with tf.device(gpus[0].name):
 if use_preprocessed:
-    base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images"]
+    if use_unscaled:
+        base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images_unscaled"]
+    else:
+        base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images"]
 else:
     base_dirs = [
     "/vols/lz/tmarley/GEM_ITO/run/im0/C",
@@ -143,24 +148,32 @@ print(
 )
 
 if use_working_version:
-    if use_preprocessed:
-        full_dataset = tf.data.Dataset.from_generator(
-            lambda: yield_preprocessed_data(base_dirs),
-            output_signature=(
-                tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
-                tf.TensorSpec(shape=(), dtype=tf.int32),
-        )
-        )
-    else:
-        m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
-        example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
-        full_dataset = tf.data.Dataset.from_generator(
-            lambda: load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, 3),
-            output_signature=(
-                tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
-                tf.TensorSpec(shape=(), dtype=tf.int32),
-            ),
-        )
+    file_list = get_file_list(base_dirs)
+    np.random.seed(77)
+    np.random.shuffle(file_list)
+
+    # Create a dataset from the file list
+    full_dataset = tf.data.Dataset.from_tensor_slices(file_list)
+    full_dataset = full_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
+    full_dataset = full_dataset.shuffle(buffer_size=len(file_list),seed=77)
+    # if use_preprocessed:
+    #     full_dataset = tf.data.Dataset.from_generator(
+    #         lambda: yield_preprocessed_data(base_dirs),
+    #         output_signature=(
+    #             tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
+    #             tf.TensorSpec(shape=(), dtype=tf.int32),
+    #     )
+    #     )
+    # else:
+    #     m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
+    #     example_dark_tensor = tf.convert_to_tensor(example_dark_list_unbinned, dtype=tf.float32)
+    #     full_dataset = tf.data.Dataset.from_generator(
+    #         lambda: load_data_yield(base_dirs, example_dark_tensor, m_dark_tensor, 3),
+    #         output_signature=(
+    #             tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),  # MAY NEED TO CHANGE
+    #             tf.TensorSpec(shape=(), dtype=tf.int32),
+    #         ),
+    #     )
 else:  # Tensor slice approach:
     file_list = get_file_list(base_dirs)
     np.random.seed(77)
@@ -208,43 +221,7 @@ num_categories = 2  # Change to 3 if argon included
 # X = [event.image for event in events]
 # y = [event.get_species_from_name() for event in events]
 
-# ================================OLD MODEL DEFINITION=======================================
 if use_working_version:
-    inputs = keras.Input(shape=(None, None, 3))  # (224, 224, 3)
-
-    # x = NoiseAdder(m_dark=m_dark, example_dark_list=example_dark_list_unbinned)(inputs)
-    # x = SmoothOperator(smoothing_sigma=3.5)(x)
-
-    # x = tf.keras.layers.Resizing(
-    #     224, 224, pad_to_aspect_ratio=True, fill_mode="constant", fill_value=0.0
-    # )(
-    #     inputs
-    # )  # This should use tensorflow's inbuilt resizing
-
-    ## Loading VGG16 model
-    # base_model = VGG16(weights="imagenet", include_top=False, input_shape=(224, 224, 3))
-    # features = base_model(x)
-
-    # net = tf.keras.layers.Flatten()(features)
-    # net = tf.keras.layers.Dense(256, activation="relu")(net)
-    # net = tf.keras.layers.Dropout(0.5)(net)
-    # preds = tf.keras.layers.Dense(num_categories, activation="softmax")(net)
-    # model = tf.keras.Model(base_model.input, preds)
-
-    base_model = VGG16(weights="imagenet", include_top=False, input_shape=(224, 224, 3))
-    net = base_model.output
-    net = tf.keras.layers.Flatten()(net)
-    net = tf.keras.layers.Dense(256, activation=tf.nn.relu)(net)
-    net = tf.keras.layers.Dropout(0.5)(net)
-    preds = tf.keras.layers.Dense(num_categories, activation=tf.nn.softmax)(net)
-    model = tf.keras.Model(base_model.input, preds)
-# ======================================================================================
-# model = tf.keras.models.load_model(
-#     "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CNN_checkpoints/epoch-04.keras",
-#     custom_objects={"softmax_v2": softmax}  # Map softmax_v2 to softmax
-# )
-
-elif not use_working_version:
     inputs = keras.Input(shape=(224, 224, 3))
     base_model = VGG16(weights="imagenet", include_top=False, input_tensor=inputs)
     net = base_model.output
@@ -253,21 +230,38 @@ elif not use_working_version:
     net = tf.keras.layers.Dropout(0.5)(net)
     preds = tf.keras.layers.Dense(num_categories, activation="softmax")(net)
     model = tf.keras.Model(base_model.input, preds)
+    num_new_layers = 4
+
+elif not use_working_version:
+    inputs = keras.Input(shape=(224, 224, 3))
+    base_model = VGG16(weights="imagenet", include_top=False, input_tensor=inputs)
+    net = base_model.output
+    net = tf.keras.layers.Flatten()(net)
+    net = tf.keras.layers.Dense(256, activation="leaky_relu")(net)
+    net = tf.keras.layers.Dropout(0.4)(net)
+    net = tf.keras.layers.Dense(64, activation="leaky_relu")(net)
+    net = tf.keras.layers.Dropout(0.4)(net)
+    preds = tf.keras.layers.Dense(num_categories, activation="softmax")(net)
+    model = tf.keras.Model(base_model.input, preds)
+    num_new_layers = 6
 
 
 # Ensure input dtype is tf.float32
 # model.build(input_shape=(None, 572, 562, 3))
 # model.layers[0].input_dtype = tf.float32
 
-freeze = False
-# Freeze convolutional layers if needed
-if freeze:
-    for layer in model.layers[:-4]:
-        layer.trainable = False
 
-opt = tf.keras.optimizers.Adam(
-    learning_rate=1e-6
-)  # Default value from the paper I'm "leaning on". Good to have very low learning rate for transfer learning
+freeze = True # Freeze convolutional layers for initial training
+if freeze:
+    for layer in model.layers[:-num_new_layers]:
+        layer.trainable = False
+    opt = tf.keras.optimizers.Adam(
+        learning_rate=1e-3
+    )
+else: # low learning rate
+    opt = tf.keras.optimizers.Adam(
+        learning_rate=1e-6
+    )  # Default value from the paper I'm "leaning on". Good to have very low learning rate for transfer learning
 loss = tf.keras.losses.SparseCategoricalCrossentropy()
 
 # "binary_crossentropy" if num_categories == 2 else
@@ -325,6 +319,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 
 
 train_start_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+#============================================================================
 
 history = model.fit(
     train_dataset,
@@ -353,11 +348,11 @@ train_end_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
 
 history_filename = os.path.join(log_dir, "history.json")
 
-model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R.keras"
+model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R_untuned.keras"
 try:
     model.save(model_save_path)
 except:
-    model.save("CoNNCR-R.keras")
+    model.save("CoNNCR-R_untuned.keras")
 
 print(
     """
@@ -370,11 +365,108 @@ info_filename = os.path.join(log_dir, "info.txt")
 
 with open(history_filename, "w") as file:
     json.dump(history.history, file)
+#============================================================================
 
-with open(info_filename, "w") as file:
-    file.write("***Training Info***\n")
-    file.write("Training Start: {}".format(train_start_time))
-    file.write("Training End: {}\n".format(train_end_time))
-    file.write("Arguments:\n")
-    for arg in sys.argv:
-        file.write("\t{}\n".format(arg))
+# with open(info_filename, "w") as file:
+#     file.write("***Training Info***\n")
+#     file.write("Training Start: {}".format(train_start_time))
+#     file.write("Training End: {}\n".format(train_end_time))
+#     file.write("Arguments:\n")
+#     for arg in sys.argv:
+#         file.write("\t{}\n".format(arg))
+
+print(
+    """
+      -=+=-
+      Checkpoint #9
+      -=+=-
+      """
+)
+
+
+# unfreeze layers
+
+if finetune:
+    freeze = False # Unfreeze convolutional layers for finetuning
+    if freeze:
+        for layer in model.layers[:-num_new_layers]:
+            layer.trainable = False
+        opt = tf.keras.optimizers.Adam(
+            learning_rate=1e-3
+        )
+    else: # low learning rate
+        for layer in model.layers[:-num_new_layers]:
+            layer.trainable = True
+        opt = tf.keras.optimizers.Adam(
+            learning_rate=1e-6
+        )
+    loss = tf.keras.losses.SparseCategoricalCrossentropy()
+
+    # "binary_crossentropy" if num_categories == 2 else
+    model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])
+
+    # Setup TensorBoard callback
+    log_dir = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs"
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir)
+
+    # Setup checkpoint callback
+    os.makedirs(os.path.join(log_dir, "ckpt","finetuned"), exist_ok=True)
+    ckpt_path = os.path.join(log_dir, "ckpt","finetuned", "epoch-{epoch:02d}.keras")
+
+    ckpt_callback = tf.keras.callbacks.ModelCheckpoint(
+        ckpt_path,
+        save_weights_only=False,
+        # period=1,
+        save_best_only=False,
+        monitor="val_loss",
+    )
+    train_start_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+    print(
+        """
+        -=+=-
+        Checkpoint #10
+        -=+=-
+        """
+    )
+    finetuned_history = model.fit(
+        train_dataset,
+        epochs=epochs,
+        # initial_epoch=1,
+        # steps_per_epoch=(train_size // batch_size),
+        # validation_steps = (val_size // batch_size),
+        # batch_size=batch_size,
+        validation_data=val_dataset,
+        verbose=1,
+        class_weight=None,  # look into changing this, might be good to
+        callbacks=[tb_callback, ckpt_callback, early_stopping],
+    )
+
+    train_end_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+
+    finetuned_history_filename = os.path.join(log_dir, "finetuned_history.json")
+
+    model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R_tuned.keras"
+    try:
+        model.save(model_save_path)
+    except:
+        model.save("CoNNCR-R_tuned.keras")
+
+    print(
+        """
+        -=+=-
+        Checkpoint #11
+        -=+=-
+        """
+    )
+    info_filename = os.path.join(log_dir, "info.txt")
+
+    with open(finetuned_history_filename, "w") as file:
+        json.dump(finetuned_history.history, file)
+        
+    with open(info_filename, "w") as file:
+        file.write("***Training Info***\n")
+        file.write("Training Start: {}".format(train_start_time))
+        file.write("Training End: {}\n".format(train_end_time))
+        file.write("Arguments:\n")
+        for arg in sys.argv:
+            file.write("\t{}\n".format(arg))
