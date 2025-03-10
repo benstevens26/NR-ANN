@@ -102,7 +102,7 @@ def get_file_list(seed=77):
 file_list = get_file_list()
 
 
-for file_path in tqdm(file_list[:5]):
+for file_path in tqdm(file_list):
     image = np.load(file_path)
     image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)[0]
     np.save(
