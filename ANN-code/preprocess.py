@@ -48,6 +48,26 @@ def preprocess_file_path(
     return image5
 
 
+def preprocess_file_path_unscaled(
+    image, m_dark=m_dark_tensor, example_dark_list=example_dark_tensor
+):
+    image1 = noise_adder(image, m_dark=m_dark, example_dark_list=example_dark_list)
+    image2 = smooth_operator(image1)
+    image3 = image2.astype(np.float32)
+    max_val = np.max(image3)
+    min_val = np.min(image3)
+    if min_val < 0:
+        image3 -= min_val
+    if max_val > 0:
+        image3 = 255 * image3 / max_val
+    image3 = np.repeat(image3[:, :, np.newaxis], 3, axis=-1)
+    image4 = tf.image.resize_with_pad(image3, 224, 224)
+    image5 = tf.keras.applications.vgg16.preprocess_input(image4)
+    # image5 /= np.max(abs(image5))
+    image5 = tf.expand_dims(image5, axis=0)
+    return image5
+
+
 def get_file_list(seed=77):
     uncropped_error = np.loadtxt(
         "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
@@ -82,9 +102,9 @@ def get_file_list(seed=77):
 file_list = get_file_list()
 
 
-for file_path in tqdm(file_list):
+for file_path in tqdm(file_list[:5]):
     image = np.load(file_path)
-    image = preprocess_file_path(image, m_dark_tensor, example_dark_tensor)[0]
+    image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)[0]
     np.save(
-        f"/vols/lz/twatson/ANN/preprocessed_images/{os.path.basename(file_path)}", image
+        f"/vols/lz/twatson/ANN/preprocessed_images_unscaled/{os.path.basename(file_path)}", image
     )
