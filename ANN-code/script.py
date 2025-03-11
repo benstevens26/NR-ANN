@@ -27,7 +27,7 @@ print(f"Running job {job_number}")
 name = "recoil_angles_CF4_"+str(job_number)
 matched_files = "/vols/lz/bstevens/NR-ANN/ANN-code/matched_file_paths_CF4.csv"
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
-num_jobs = 500
+num_jobs = 200
 
 # Load matched file paths
 df_matched = pd.read_csv(matched_files)
@@ -81,24 +81,30 @@ print("---------------------------------")
 print("Starting feature extraction")
 print("---------------------------------")
 
+extract_R_failed = 0
+extract_axis_failed = 0
+extract_angle_failed = 0
 for event in tqdm(events):
 
     try:
-        R = extract_R(cam_image, ito_image)
+        R = extract_R(event.cam_image, event.ito_image)
     except:
+        extract_R_failed += 1
         continue
 
     if np.sum(R) == 0: # weird event has sumR = 0
         continue
 
     try:
-        axis, centroid = extract_axis_3d(R)
+        axis, _ = extract_axis_3d(R)
     except:
+        extract_axis_failed += 1
         continue
 
     try:
         recoil_angle_3d = extract_recoil_angle_3d(axis)
     except:
+        extract_angle_failed += 1
         continue
 
     filename = event.cam_path
@@ -111,6 +117,11 @@ for event in tqdm(events):
         },
         ignore_index=True,
     )
+
+
+print("extract_R failed: ", extract_R_failed)
+print("extract_axis failed: ", extract_axis_failed)
+print("extract_angle failed: ", extract_angle_failed)
 
 print("---------------------------------")
 print("Features extracted, saving to csv")

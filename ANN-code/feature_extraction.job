@@ -6,4 +6,4 @@ log = logs/$(PROCESS).log
 arguments = $(PROCESS)
 request_memory = 4G
 +MaxRuntime = 10799
-queue 500
+queue 200
