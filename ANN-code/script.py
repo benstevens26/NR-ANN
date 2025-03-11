@@ -51,22 +51,7 @@ m_dark = np.load(f"{dark_dir}/master_dark_1x1.npy")
 example_dark_list = np.load(f"{dark_dir}/quest_std_dark_{dark_list_number}.npy")
 
 print("---------------------------------")
-print("Instantiating events and preprocessing images")
-print("---------------------------------")
-
-
-for cam_path, ito_path in file_paths:
-    cam_image = noise_adder(np.load(cam_path), m_dark, example_dark_list)
-    ito_image = np.load(ito_path)
-    events.append(Event3D(cam_path, cam_image, ito_path, ito_image))
-
-
-for event in tqdm(events):
-    event.cam_image, event.ito_image = preprocess_3d(event.cam_image, event.ito_image)
-
-
-print("---------------------------------")
-print("Preprocessing complete")
+print("Instantiating events, preprocessing images, and extracting features")
 print("---------------------------------")
 
 # Define columns for the features dataframe
@@ -77,17 +62,22 @@ features = [
 
 features_dataframe = pd.DataFrame(columns=features)
 
-print("---------------------------------")
-print("Starting feature extraction")
-print("---------------------------------")
+for cam_path, ito_path in tqdm(file_paths, desc="Instantiating 3DEvent Objects"): # add noise, load images, and create event objects
+    cam_image = noise_adder(np.load(cam_path), m_dark, example_dark_list)
+    ito_image = np.load(ito_path)
+    events.append(Event3D(cam_path, cam_image, ito_path, ito_image))
 
-extract_R_failed = 0
+
+extract_R_failed = 0 # count failed extractions
 extract_axis_failed = 0
 extract_angle_failed = 0
-for event in tqdm(events):
+
+for event in tqdm(events, desc="Preprocessing and Feature Extraction"): 
+    cam_image, ito_image = preprocess_3d(event.cam_image, event.ito_image)
+    filename = event.cam_path
 
     try:
-        R = extract_R(event.cam_image, event.ito_image)
+        R = extract_R(cam_image, ito_image)
     except:
         extract_R_failed += 1
         continue
@@ -106,8 +96,6 @@ for event in tqdm(events):
     except:
         extract_angle_failed += 1
         continue
-
-    filename = event.cam_path
 
     # Append features to dataframe
     features_dataframe = features_dataframe._append(

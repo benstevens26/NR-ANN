@@ -5,7 +5,6 @@ Module that contains standalone functions for imaging analysis.
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.measure import block_reduce
-import plotly.graph_objects as go
 
 def plot_axis(image, principal_axis, centroid):
     """
@@ -273,6 +272,7 @@ def plot_voxels_axis(R, downsample_factor=4, principal_axis=None, centroid=None)
         centroid (np.ndarray, optional): Centroid coordinates of the voxel distribution.
     """
 
+    import plotly.graph_objects as go
     # Find nonzero indices
     nonzero_indices = np.nonzero(R)
 
