@@ -387,7 +387,7 @@ def subdivxy(im,xscale,yscale):
 
     return im_large
 
-def preprocess_3d(cam_image, ito_image):
+def preprocess_3d(cam_image, ito_image, scaling=True):
     """
     3d preprocessing
     """
@@ -422,11 +422,15 @@ def preprocess_3d(cam_image, ito_image):
         pad_amount = (ito_x_pixels - cam_x_pixels) // 2
         cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
 
+    if scaling:
+        scale_factor = np.sum(cam_image) / np.sum(ito_image)
+        ito_image  = ito_image * scale_factor 
+
     return cam_image, ito_image
 
 
 
-def extract_R(cam_image, ito_image, preprocess=True):
+def extract_R(cam_image, ito_image, preprocess=False):
     """
     extract voxel reconstruction R from cam_image (NOISY) and ito_image
     """
@@ -472,7 +476,8 @@ def extract_R(cam_image, ito_image, preprocess=True):
 
 def extract_axis_3d(R):
     """
-    Extracts the principal axis and centroid from a 3D intensity voxel matrix using SVD.
+    Extracts the principal axis and centroid from a 3D intensity voxel matrix using SVD. 
+    Returns intensity weighted centroid and intensity weighted principal axis.
 
     Parameters:
         R (np.ndarray): 3D numpy array of voxel intensities with shape (x, y, z).
@@ -493,7 +498,10 @@ def extract_axis_3d(R):
     coords_centered = coords - centroid
 
     # Compute weighted covariance matrix
-    cov_matrix = np.cov(coords.T, aweights=intensities)
+    try:
+        cov_matrix = np.cov(coords.T, aweights=intensities)
+    except:
+        cov_matrix = np.cov(coords.T, aweights=np.abs(intensities))
 
     # Eigen-decomposition
     eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
@@ -501,8 +509,8 @@ def extract_axis_3d(R):
     # Extract principal axis
     principal_axis = eigenvectors[:, np.argmax(eigenvalues)]
 
-    if principal_axis[1] < 0:
-        principal_axis[1] = -principal_axis[1]
+    if principal_axis[0] < 0: #flip all if x<0
+        principal_axis = -principal_axis
 
     return principal_axis, centroid
 
@@ -515,9 +523,10 @@ def extract_recoil_angle_3d(principal_axis):
         principal_axis (np.ndarray): Principal axis vector.
 
     Returns:
-        alpha (float): Angle in radians between the principal axis and +x axis.
+        alpha (float): Angle in degrees between the principal axis and +x axis, ranging from 0 to 180 degrees.
     """
     v_x, v_y, v_z = principal_axis
     magnitude = np.linalg.norm(principal_axis)
     alpha = np.arccos(v_x / magnitude)
+    alpha = np.degrees(alpha)
     return alpha

@@ -239,7 +239,7 @@ def plot_voxels(R, downsample_factor=4):
     factor = downsample_factor
     R_downsampled = block_reduce(R_cropped, block_size=(factor, factor, factor), func=np.max)
 
-    voxel_size = 0.019  # Each voxel is 0.019mm
+    voxel_size = 0.019  # Each voxel is ~0.019mm
 
     fig = go.Figure(data=go.Volume(
         x=(np.linspace(xmin, xmax, R_downsampled.shape[0]) * voxel_size).repeat(R_downsampled.shape[1] * R_downsampled.shape[2]),
