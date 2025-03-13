@@ -9,6 +9,7 @@ from tqdm import tqdm
 import re
 
 
+
 # -=+ model +=-
 # which = "L"
 which = "C"
@@ -20,7 +21,8 @@ save = False
 
 ROC_curve = True
 confusion_matrix = True
-prediction_with_energy = True
+prediction_with_energy = False
+gradcam = True
 
 # -=+ dataset +=-
 biased = False
@@ -191,11 +193,21 @@ if exclude_low_energies:
     data = [event for event in data if not ((event[1] == 1 and event[2] < 170) or (event[1] == 0 and event[2] < 130))]
 
 if biased:
-    NotImplementedError
-
-
-
-
+    CF_ratio = 7.33
+    num_F = int(sum(1 for row in data if row[1] == 1))
+    num_C = int(num_F//CF_ratio)
+    
+    C_data = [row for row in data if row[1] == 0]
+    F_data = [row for row in data if row[1] == 1]
+    
+    if len(C_data) > num_C:
+        # Randomly shuffle and select only num_C elements
+        np.random.seed(77)
+        np.random.shuffle(C_data)
+        C_data = C_data[:num_C]
+    
+    data = C_data + F_data
+    np.random.shuffle(data)
 
 if prediction_with_energy:
     labels = np.array([i[1] for i in data])
@@ -226,4 +238,33 @@ if prediction_with_energy:
 
 
 accuracy = sum(row[1] == round(row[3]) for row in data) / len(data)
+print(f"Biased? {biased}")
+print(f"Exclude low energy? {exclude_low_energies}")
 print(f"Accuracy: {accuracy:.2%}")
+
+
+if gradcam:
+    os.environ["KERAS_BACKEND"] = "tensorflow"
+    import keras
+    from gradcam_testing import get_img_array, make_gradcam_heatmap, save_and_display_gradcam
+    
+    img_size=(224, 224)
+    last_conv_layer_name = "block5_conv3"
+    
+    img_path = data[0][0]
+    # needs to be "batched"
+    img_array = np.load(img_path)
+    img_array = np.expand_dims(img_array, axis=0)
+
+    # Remove last layer's softmax
+    model.layers[-1].activation = None
+    preds = model.predict(img_array)
+    print("Predicted:", preds[0])
+
+    heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
+    plt.imshow(img_array[0, :, :, 0].astype(np.uint8), cmap="gray")
+    plt.show()
+    plt.matshow(heatmap)
+    plt.show()
+    
+    save_and_display_gradcam(img_array, heatmap)
