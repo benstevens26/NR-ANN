@@ -4,6 +4,6 @@ output = logs/$(PROCESS).log
 error = logs/$(PROCESS).err
 log = logs/$(PROCESS).log
 arguments = $(PROCESS)
-request_memory = 8000
+request_memory = 12000
 +MaxRuntime = 10799
-queue 40
+queue 100

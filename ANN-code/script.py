@@ -27,7 +27,7 @@ print(f"Running job {job_number}")
 name = "recoil_angles_CF4_"+str(job_number)
 matched_files = "/vols/lz/bstevens/NR-ANN/ANN-code/matched_file_paths_CF4.csv"
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
-num_jobs = 40
+num_jobs = 100
 
 # Load matched file paths
 df_matched = pd.read_csv(matched_files)
