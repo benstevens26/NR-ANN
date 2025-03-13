@@ -13,7 +13,7 @@ import sys
 from image_preprocessing import noise_adder, gaussian_smoothing
 from bb_event import Event3D
 from feature_extraction import preprocess_3d, extract_R, extract_axis_3d, extract_recoil_angle_3d
-
+from feature_extraction import crop_voxels
 
 # Get the job number from the argument (HTCondor passes $(PROCESS))
 if len(sys.argv) > 1:
@@ -27,7 +27,7 @@ print(f"Running job {job_number}")
 name = "recoil_angles_CF4_"+str(job_number)
 matched_files = "/vols/lz/bstevens/NR-ANN/ANN-code/matched_file_paths_CF4.csv"
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
-num_jobs = 120
+num_jobs = 140
 
 # Load matched file paths
 df_matched = pd.read_csv(matched_files)
@@ -57,14 +57,11 @@ print("---------------------------------")
 # Define columns for the features dataframe
 features = [
     "file_name",
+    "axis_3d",
     "recoil_angle_3d"
 ]
 
 features_dataframe = pd.DataFrame(columns=features)
-
-extract_R_failed = 0 # count failed extractions
-extract_axis_failed = 0
-extract_angle_failed = 0
 
 for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noise, load images, and create event objects
     cam_image = noise_adder(np.load(cam_path), m_dark, example_dark_list)
@@ -72,7 +69,7 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     cam_image, ito_image = preprocess_3d(cam_image, ito_image)
     filename = cam_path
 
-    R = extract_R(cam_image, ito_image)
+    R = crop_voxels(extract_R(cam_image, ito_image).astype(np.float32))
 
     if np.sum(R) == 0: # weird event has sumR = 0
         continue
@@ -85,15 +82,12 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     features_dataframe = features_dataframe._append(
         {
             "file_name": filename,
+            "axis_3d": axis,
             "recoil_angle_3d": recoil_angle_3d
+
         },
         ignore_index=True,
     )
-
-
-print("extract_R failed: ", extract_R_failed, "times")
-print("extract_axis failed: ", extract_axis_failed, "times")
-print("extract_angle failed: ", extract_angle_failed, "times")
 
 print("---------------------------------")
 print("Features extracted, saving to csv")

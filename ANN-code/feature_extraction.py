@@ -10,6 +10,7 @@ from scipy.interpolate import splprep, splev
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from skimage.filters import threshold_otsu
+import torch
 
 def extract_sum_intensity(image):
     """
@@ -474,6 +475,34 @@ def extract_R(cam_image, ito_image, preprocess=False):
     return R
         
 
+def crop_voxels(R):
+    """
+    Crops a 3D numpy array to the smallest bounding box containing all nonzero voxels.
+
+    Parameters:
+    R (np.ndarray): 3D numpy array representing the voxel intensities.
+
+    Returns:
+    np.ndarray: Cropped 3D numpy array.
+    """
+    assert R.ndim == 3, "Input array must be 3D"
+    
+    # Find the indices where volume is nonzero
+    nonzero_coords = np.argwhere(R > 0)
+
+    if nonzero_coords.size == 0:
+        return np.zeros((1, 1, 1), dtype=R.dtype)  # If empty, return a minimal array
+
+    # Get the bounding box indices
+    min_z, min_y, min_x = nonzero_coords.min(axis=0)
+    max_z, max_y, max_x = nonzero_coords.max(axis=0)
+
+    # Crop the array
+    cropped_R = R[min_z:max_z+1, min_y:max_y+1, min_x:max_x+1]
+
+    return cropped_R
+
+
 def extract_axis_3d(R):
     """
     Extracts the principal axis and centroid from a 3D intensity voxel matrix using SVD. 
@@ -530,3 +559,25 @@ def extract_recoil_angle_3d(principal_axis):
     alpha = np.arccos(v_x / magnitude)
     alpha = np.degrees(alpha)
     return alpha
+
+
+def extract_track_volume(R, sparse=False):
+    """
+    Extracts the volume of the track from the 3D intensity matrix R.
+
+    Parameters:
+        R (np.ndarray): 3D numpy array of voxel intensities with shape (x, y, z).
+        sparse (bool): Whether to use sparse matrix operations. Default is False.
+
+    Returns:
+        vol (float): Volume of the track (in mm3).
+    """
+    voxel_volume = 40e-6 * 40e-6 * 40e-6  
+
+    if sparse:
+        num_nonzero_voxels = R.values().numel()
+        vol = num_nonzero_voxels * voxel_volume  
+        return vol
+    
+    vol = np.count_nonzero(R) * voxel_volume
+    return vol
