@@ -10,7 +10,7 @@ from scipy.interpolate import splprep, splev
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from skimage.filters import threshold_otsu
-import torch
+
 
 def extract_sum_intensity(image):
     """
