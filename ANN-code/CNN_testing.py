@@ -71,6 +71,7 @@ if False:  # load model and dataset
     if small:
         test_dataset = test_dataset.take(3)
     test_dataset = test_dataset.prefetch(tf.data.AUTOTUNE)
+
     def preprocess_file_path(
         image, m_dark=m_dark_tensor, example_dark_list=example_dark_tensor
     ):
@@ -87,6 +88,7 @@ if False:  # load model and dataset
         image5 = tf.expand_dims(image5, axis=0)
         return image5
 
+
 ##############################################################
 # need to get a filename list and shuffle it in the same way #
 ##############################################################
@@ -98,23 +100,20 @@ else:
 
 
 batch_size = 16
-dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
-train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
-val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
-test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
+dataset_size = 99366  # 99989 without the  # CHANGE DEPENDING ON DATA USED
+train_size = (int(0.7 * dataset_size) // batch_size) * batch_size
+val_size = (int(0.15 * dataset_size) // batch_size) * batch_size
+test_size = (
+    (dataset_size - train_size - val_size) // batch_size
+) * batch_size  # Ensure all data is used
 
 
-
-def get_file_list(seed=77, base_dirs = base_dirs):
+def get_file_list(seed=77, base_dirs=base_dirs):
     # Get all the .npy files from base_dirs
     file_list = []
     for base_dir in base_dirs:
         for root, dirs, files in os.walk(base_dir):
-            files = [
-                f
-                for f in files
-                if (f.endswith(".npy"))
-            ]
+            files = [f for f in files if (f.endswith(".npy"))]
             file_list.extend([os.path.join(root, file) for file in files])
 
     file_list.sort()
@@ -122,7 +121,8 @@ def get_file_list(seed=77, base_dirs = base_dirs):
     np.random.shuffle(file_list)
     return file_list
 
-# test_size = 10
+
+test_size = 10
 file_list = get_file_list()
 test_file_list = file_list[-test_size:]
 other_file_list = file_list[:-test_size]
@@ -134,9 +134,6 @@ other_file_list = file_list[:-test_size]
 #     print(f"prediction: {prediction[0]}")
 
 
-
-
-
 with open("CoNNCR-R_predictions_v3.csv", mode="w", newline="") as file:
     writer = csv.writer(file)
     # Write header row
@@ -146,7 +143,7 @@ with open("CoNNCR-R_predictions_v3.csv", mode="w", newline="") as file:
         image = np.load(file_path)
         image = np.expand_dims(image, axis=0)
         # image = preprocess_file_path(image)
-        prediction = model.predict(image,verbose=0)
+        prediction = model.predict(image, verbose=0)
 
         # Write data to CSV file
         writer.writerow([file_path, prediction[0]])
@@ -192,7 +189,6 @@ with open("CoNNCR-R_predictions_v3.csv", mode="w", newline="") as file:
 
 # # Save the DataFrame to a CSV file
 # roc_data.to_csv("roc_curve_data.csv", index=False)
-
 
 
 # print("starting evaluation")

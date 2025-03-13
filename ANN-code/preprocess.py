@@ -27,7 +27,7 @@ example_dark_list_unbinned = np.load(
 )
 m_dark_tensor = tf.convert_to_tensor(m_dark, dtype=tf.float32)
 example_dark_tensor = tf.convert_to_tensor(
-    example_dark_list_unbinned[:1], dtype=tf.float32
+    example_dark_list_unbinned, dtype=tf.float32
 )
 
 
@@ -53,18 +53,13 @@ def preprocess_file_path_unscaled(
 ):
     image1 = noise_adder(image, m_dark=m_dark, example_dark_list=example_dark_list)
     image2 = smooth_operator(image1)
-    image3 = image2.astype(np.float32)
-    max_val = np.max(image3)
-    min_val = np.min(image3)
-    if min_val < 0:
-        image3 -= min_val
-    if max_val > 0:
-        image3 = 255 * image3 / max_val
+    image2 = image2.astype(np.float32)
+    image2 -= np.min(image2)
+    image3 = 255 * image2 / np.max(image2)
     image3 = np.repeat(image3[:, :, np.newaxis], 3, axis=-1)
     image4 = tf.image.resize_with_pad(image3, 224, 224)
     image5 = tf.keras.applications.vgg16.preprocess_input(image4)
     # image5 /= np.max(abs(image5))
-    image5 = tf.expand_dims(image5, axis=0)
     return image5
 
 
@@ -101,10 +96,19 @@ def get_file_list(seed=77):
 
 file_list = get_file_list()
 
-
-for file_path in tqdm(file_list):
-    image = np.load(file_path)
-    image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)[0]
-    np.save(
-        f"/vols/lz/twatson/ANN/preprocessed_images_unscaled/{os.path.basename(file_path)}", image
+for i in range(10):
+    example_dark_list_unbinned = np.load(
+    f"{dark_dir}/quest_std_dark_{i}.npy"
     )
+    example_dark_tensor = tf.convert_to_tensor(
+        example_dark_list_unbinned, dtype=tf.float32
+    )
+    start_idx = i * (len(file_list) // 10)
+    end_idx = (i + 1) * (len(file_list) // 10)
+    for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing chunk {i+1}/{10}"):
+        image = np.load(file_path)
+        image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
+        np.save(
+            f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
+            image,
+        )
