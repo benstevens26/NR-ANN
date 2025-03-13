@@ -46,7 +46,6 @@ print(f"Processing {len(df_job)} files in job {job_number}")
 # Make event objects with images preprocessed
 
 file_paths = np.array(df_job)
-events = []
 dark_list_number = np.random.randint(0, 10)
 m_dark = np.load(f"{dark_dir}/master_dark_1x1.npy")
 example_dark_list = np.load(f"{dark_dir}/quest_std_dark_{dark_list_number}.npy")
@@ -63,40 +62,24 @@ features = [
 
 features_dataframe = pd.DataFrame(columns=features)
 
-for cam_path, ito_path in tqdm(file_paths, desc="Instantiating 3DEvent Objects"): # add noise, load images, and create event objects
-    cam_image = noise_adder(np.load(cam_path), m_dark, example_dark_list)
-    ito_image = np.load(ito_path)
-    events.append(Event3D(cam_path, cam_image, ito_path, ito_image))
-
-
 extract_R_failed = 0 # count failed extractions
 extract_axis_failed = 0
 extract_angle_failed = 0
 
-for event in tqdm(events, desc="Preprocessing and Feature Extraction"): 
-    cam_image, ito_image = preprocess_3d(event.cam_image, event.ito_image)
-    filename = event.cam_path
+for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noise, load images, and create event objects
+    cam_image = noise_adder(np.load(cam_path), m_dark, example_dark_list)
+    ito_image = np.load(ito_path)
+    cam_image, ito_image = preprocess_3d(cam_image, ito_image)
+    filename = cam_path
 
-    try:
-        R = extract_R(cam_image, ito_image)
-    except:
-        extract_R_failed += 1
-        continue
+    R = extract_R(cam_image, ito_image)
 
     if np.sum(R) == 0: # weird event has sumR = 0
         continue
 
-    try:
-        axis, _ = extract_axis_3d(R)
-    except:
-        extract_axis_failed += 1
-        continue
+    axis, _ = extract_axis_3d(R)
 
-    try:
-        recoil_angle_3d = extract_recoil_angle_3d(axis)
-    except:
-        extract_angle_failed += 1
-        continue
+    recoil_angle_3d = extract_recoil_angle_3d(axis)
 
     # Append features to dataframe
     features_dataframe = features_dataframe._append(
@@ -108,9 +91,9 @@ for event in tqdm(events, desc="Preprocessing and Feature Extraction"):
     )
 
 
-print("extract_R failed: ", extract_R_failed)
-print("extract_axis failed: ", extract_axis_failed)
-print("extract_angle failed: ", extract_angle_failed)
+print("extract_R failed: ", extract_R_failed, "times")
+print("extract_axis failed: ", extract_axis_failed, "times")
+print("extract_angle failed: ", extract_angle_failed, "times")
 
 print("---------------------------------")
 print("Features extracted, saving to csv")
