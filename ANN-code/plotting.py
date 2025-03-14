@@ -246,7 +246,7 @@ print(f"Accuracy: {accuracy:.2%}")
 if gradcam:
     os.environ["KERAS_BACKEND"] = "tensorflow"
     import keras
-    from gradcam_testing import get_img_array, make_gradcam_heatmap, save_and_display_gradcam
+    from gradcam import get_img_array, make_gradcam_heatmap, save_and_display_gradcam
     
     img_size=(224, 224)
     last_conv_layer_name = "block5_conv3"
@@ -267,4 +267,4 @@ if gradcam:
     plt.matshow(heatmap)
     plt.show()
     
-    save_and_display_gradcam(img_array, heatmap)
+    save_and_display_gradcam(img_array[0], heatmap)

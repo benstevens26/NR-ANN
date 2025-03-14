@@ -106,7 +106,7 @@ print(
 # with tf.device(gpus[0].name):
 if use_preprocessed:
     if use_unscaled:
-        base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images_unscaled"]
+        base_dirs = ["/vols/lz/twatson/ANN/final_ims"]
     else:
         base_dirs = ["/vols/lz/twatson/ANN/preprocessed_images"]
 else:
@@ -445,11 +445,11 @@ if finetune:
 
     finetuned_history_filename = os.path.join(log_dir, "finetuned_history.json")
 
-    model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R_tuned.keras"
+    model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R.keras"
     try:
         model.save(model_save_path)
     except:
-        model.save("CoNNCR-R_tuned.keras")
+        model.save("CoNNCR-R.keras")
 
     print(
         """

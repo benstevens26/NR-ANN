@@ -125,3 +125,36 @@ def save_and_display_gradcam(img_array, heatmap, cam_path="cam.jpg", alpha=0.4):
 
 
 # save_and_display_gradcam(img_path, heatmap)
+
+import cv2
+import numpy as np
+import matplotlib as mpl
+import keras.utils
+from PIL import Image
+
+def save_and_display_gradcam2(img_array, heatmap, cam_path="cam.jpg", alpha=0.4):
+    # Ensure the input image is uint8
+    if img_array.dtype != np.uint8:
+        img_array = np.uint8(255 * img_array)  # Convert from float if necessary
+
+    # Rescale heatmap to 0-255
+    heatmap = np.uint8(255 * heatmap)
+
+    # Apply the jet colormap
+    jet = mpl.colormaps["jet"]
+    jet_colors = jet(np.arange(256))[:, :3]
+    jet_heatmap = jet_colors[heatmap]
+
+    # Resize the heatmap properly using INTER_NEAREST for less blurring
+    jet_heatmap = cv2.resize(jet_heatmap, (img_array.shape[1], img_array.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+    # Convert heatmap to float32 for addition
+    jet_heatmap = np.asarray(jet_heatmap, dtype=np.float32)
+
+    # Superimpose the heatmap onto the original image
+    superimposed_img = jet_heatmap * alpha + img_array
+    superimposed_img = np.clip(superimposed_img, 0, 255).astype(np.uint8)  # Clip values to ensure valid pixels
+
+    # Save and display
+    Image.fromarray(superimposed_img).save(cam_path)
+    display(Image.open(cam_path))
