@@ -468,7 +468,7 @@ def extract_R(cam_image, ito_image, preprocess=False):
             cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
 
 
-    assert cam_image.shape[1] == ito_image.shape[1] # check
+    assert cam_image.shape[1] == ito_image.shape[1] # throw error if not processed
 
     R = np.einsum('ik,jk->kij', cam_image, ito_image)
 
