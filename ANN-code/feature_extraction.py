@@ -447,6 +447,8 @@ def extract_R(cam_image, ito_image, preprocess=False, downsample=False, downsamp
         ito_image = rescale(ito_image, rescale_factor)
 
     R = np.einsum('ik,jk->kij', cam_image, ito_image)
+  
+    R[R < 0] = 0  # Clip negatives to zero before square root
     R = np.sqrt(R)
 
     return R
@@ -476,6 +478,7 @@ def crop_voxels(R):
 
     # Crop the array
     cropped_R = R[min_z:max_z+1, min_y:max_y+1, min_x:max_x+1]
+    
 
     return cropped_R
 
