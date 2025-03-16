@@ -27,7 +27,7 @@ print(f"Running job {job_number}")
 name = "recoil_angles_CF4_"+str(job_number)
 matched_files = "/vols/lz/bstevens/NR-ANN/ANN-code/matched_file_paths_CF4.csv"
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
-num_jobs = 200
+num_jobs = 100
 
 # Load matched file paths
 df_matched = pd.read_csv(matched_files)
@@ -69,7 +69,7 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     cam_image, ito_image = preprocess_3d(cam_image, ito_image)
     filename = cam_path
 
-    R = crop_voxels(extract_R(cam_image, ito_image).astype(np.float32))
+    R = extract_R(cam_image, ito_image, downsample=True, downsample_factor=5).astype(np.float32)
 
     if np.sum(R) == 0: # weird event has sumR = 0
         continue

@@ -10,6 +10,7 @@ from scipy.interpolate import splprep, splev
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from skimage.filters import threshold_otsu
+from skimage.transform import rescale
 
 
 def extract_sum_intensity(image):
@@ -431,44 +432,19 @@ def preprocess_3d(cam_image, ito_image, scaling=True):
 
 
 
-def extract_R(cam_image, ito_image, preprocess=False):
+def extract_R(cam_image, ito_image, preprocess=False, downsample=False, downsample_factor=2):
     """
     extract voxel reconstruction R from cam_image (NOISY) and ito_image
     """
     if preprocess:
-        from image_preprocessing import gaussian_smoothing
-        # smooth and threshold cam_image
-        cam_image = gaussian_smoothing(cam_image, 3.5)
-        cam_threshold = threshold_otsu(cam_image)
-        cam_above_threshold = cam_image.copy()
-        cam_above_threshold[cam_above_threshold < cam_threshold] = 0
-        cam_image = cam_above_threshold
+        cam_image, ito_image = preprocess_3d(cam_image, ito_image)
 
-        # subdivide cam and ito
-        cam_image = subdivxy(cam_image, 2, 2)
-        ito_image = subdivxy(ito_image, 42, 13)
+    assert cam_image.shape[1] == ito_image.shape[1] # throw error if not pre-processed
 
-        # smooth and threshold ito_image
-        ito_image = gaussian_smoothing(ito_image, 14)
-        ito_threshold = threshold_otsu(ito_image)
-        ito_above_threshold = ito_image.copy()
-        ito_above_threshold[ito_above_threshold < ito_threshold] = 0
-        ito_image = ito_above_threshold
-
-        # pad cam or ito if x dims don't match
-
-        cam_x_pixels = cam_image.shape[1]
-        ito_x_pixels = ito_image.shape[1]
-
-        if cam_x_pixels > ito_x_pixels:
-            pad_amount = (cam_x_pixels - ito_x_pixels) // 2
-            ito_image = np.pad(ito_image, ((0, 0), (pad_amount, cam_x_pixels - ito_x_pixels - pad_amount)), mode='constant')
-        elif ito_x_pixels > cam_x_pixels:
-            pad_amount = (ito_x_pixels - cam_x_pixels) // 2
-            cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
-
-
-    assert cam_image.shape[1] == ito_image.shape[1] # throw error if not processed
+    if downsample:
+        rescale_factor = 1/downsample_factor
+        cam_image = rescale(cam_image, rescale_factor)
+        ito_image = rescale(ito_image, rescale_factor)
 
     R = np.einsum('ik,jk->kij', cam_image, ito_image)
     R = np.sqrt(R)
