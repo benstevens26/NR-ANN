@@ -12,7 +12,7 @@ import os
 import sys
 from image_preprocessing import noise_adder, gaussian_smoothing
 from bb_event import Event3D
-from feature_extraction import preprocess_3d, extract_recoil_angle, extract_axis
+from feature_extraction import preprocess_3d, extract_recoil_angle, extract_axis, subdivxy
 
 
 # Get the job number from the argument (HTCondor passes $(PROCESS))
@@ -69,6 +69,11 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     ito_image = np.load(ito_path)
     # cam_image, ito_image = preprocess_3d(cam_image, ito_image)
     cam_image = gaussian_smoothing(cam_image)
+
+    cam_image = subdivxy(cam_image, 2, 2)
+    ito_image = subdivxy(ito_image, 42, 13)
+
+
     filename = cam_path
 
     axis_xy, _ = extract_axis(cam_image)
