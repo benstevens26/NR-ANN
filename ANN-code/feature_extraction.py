@@ -471,6 +471,7 @@ def extract_R(cam_image, ito_image, preprocess=False):
     assert cam_image.shape[1] == ito_image.shape[1] # throw error if not processed
 
     R = np.einsum('ik,jk->kij', cam_image, ito_image)
+    R = np.sqrt(R)
 
     return R
         
