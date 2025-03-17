@@ -389,7 +389,7 @@ def subdivxy(im,xscale,yscale):
 
     return im_large
 
-def preprocess_3d(cam_image, ito_image, scaling=True):
+def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_peak'):
     """
     3d preprocessing
     """
@@ -414,15 +414,40 @@ def preprocess_3d(cam_image, ito_image, scaling=True):
 
     # pad cam or ito if x dims don't match
 
-    cam_x_pixels = cam_image.shape[1]
-    ito_x_pixels = ito_image.shape[1]
+    if pad_style == 'match_x_at_zero':
+        cam_x_pixels = cam_image.shape[1]
+        ito_x_pixels = ito_image.shape[1]
 
-    if cam_x_pixels > ito_x_pixels:
-        pad_amount = (cam_x_pixels - ito_x_pixels) // 2
-        ito_image = np.pad(ito_image, ((0, 0), (pad_amount, cam_x_pixels - ito_x_pixels - pad_amount)), mode='constant')
-    elif ito_x_pixels > cam_x_pixels:
-        pad_amount = (ito_x_pixels - cam_x_pixels) // 2
-        cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
+        if cam_x_pixels > ito_x_pixels:
+            pad_amount = (cam_x_pixels - ito_x_pixels) // 2
+            ito_image = np.pad(ito_image, ((0, 0), (pad_amount, cam_x_pixels - ito_x_pixels - pad_amount)), mode='constant')
+        elif ito_x_pixels > cam_x_pixels:
+            pad_amount = (ito_x_pixels - cam_x_pixels) // 2
+            cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
+
+    if pad_style == 'match_bragg_peak':
+        margin=50
+        cam_sum_x, ito_sum_x = np.sum(cam_image, axis=0), np.sum(ito_image, axis=0)
+
+        # shift along x axis by padding cam, so that the peak intensity of cam_sum_x aligns with the peak intensity of ito_sum_x
+        shift_x = np.argmax(ito_sum_x) - np.argmax(cam_sum_x)
+        if shift_x > 0: # pad cam on the left
+            cam_image = np.pad(cam_image, ((0, 0), (shift_x, 0)), mode='constant', constant_values=0)
+        if shift_x < 0: # pad cam on the right
+            cam_image = np.pad(cam_image, ((0, 0), (0, -shift_x)), mode='constant', constant_values=0)
+
+        nonzero_x_cam, nonzero_x_ito = np.nonzero(np.sum(cam_image, axis=1))[0], np.nonzero(np.sum(ito_image, axis=1))[0]
+        nonzero_y_cam, nonzero_y_ito = np.nonzero(np.sum(cam_image, axis=0))[0], np.nonzero(np.sum(ito_image, axis=0))[0]
+
+        plot_x_min = min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin
+        plot_x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin
+        
+        plot_y_min = min(nonzero_y_cam[0], nonzero_y_ito[0]) - margin
+        plot_y_max = max(nonzero_y_cam[-1], nonzero_y_ito[-1]) + margin
+
+        # crop images
+        cam_image = cam_image[plot_x_min:plot_x_max, plot_y_min:plot_y_max]
+        ito_image = ito_image[plot_x_min:plot_x_max, plot_y_min:plot_y_max]
 
     if scaling:
         scale_factor = np.sum(cam_image) / np.sum(ito_image)
@@ -432,7 +457,7 @@ def preprocess_3d(cam_image, ito_image, scaling=True):
 
 
 
-def extract_R(cam_image, ito_image, preprocess=False, downsample=False, downsample_factor=2):
+def extract_R(cam_image, ito_image, preprocess=False, downsample=True, downsample_factor=2):
     """
     extract voxel reconstruction R from cam_image (NOISY) and ito_image
     """
@@ -541,7 +566,7 @@ def extract_recoil_angle_3d(principal_axis):
     return alpha
 
 
-def extract_track_volume(R, sparse=False):
+def extract_track_volume(R, downsample_factor, sparse=False):
     """
     Extracts the volume of the track from the 3D intensity matrix R.
 
@@ -552,7 +577,7 @@ def extract_track_volume(R, sparse=False):
     Returns:
         vol (float): Volume of the track (in mm3).
     """
-    voxel_volume = 40e-6 * 40e-6 * 40e-6  
+    voxel_volume = (40e-6 * 40e-6 * 40e-6) * downsample_factor**3
 
     if sparse:
         num_nonzero_voxels = R.values().numel()
@@ -561,3 +586,63 @@ def extract_track_volume(R, sparse=False):
     
     vol = np.count_nonzero(R) * voxel_volume
     return vol
+
+
+
+
+
+def extract_intensity_profile_3d(
+    R: np.ndarray,
+    method: str = "thin_intensity_profile",
+    plot: bool = False,
+    principal_axis: np.ndarray = None,
+    centroid: tuple = None,
+    num_points: int = 500
+):
+    """
+    Extracts an intensity profile along the principal axis of a 3D voxelized image.
+
+    Parameters:
+        R (numpy.ndarray): 3D tensor representing the voxelized intensity image.
+        method (str): Method for extracting intensity profile. Default is 'thin_intensity_profile'.
+        plot (bool): Whether to plot the intensity profile. Default is False.
+        principal_axis (numpy.ndarray, optional): Precomputed principal axis (3D vector). If None, it will be computed.
+        centroid (tuple, optional): Precomputed centroid (x, y, z). If None, it will be computed.
+        num_points (int): Number of points to sample along the axis.
+
+    Returns:
+        tuple: distances (numpy.ndarray), intensities (numpy.ndarray)
+    """
+
+    from scipy.ndimage import map_coordinates
+    
+    if method != "thin_intensity_profile":
+        raise ValueError(f"Unsupported method: {method}")
+
+    # Compute principal axis and centroid if not provided
+    if principal_axis is None or centroid is None:
+        print("please provide principal axis and centroid")
+
+    # Generate points along the principal axis
+    t_values = np.linspace(-R.shape[0] / 2, R.shape[0] / 2, num_points)
+    line_points = centroid + np.outer(t_values, principal_axis)  # (num_points, 3)
+
+    # Interpolate voxel intensities at these points
+    intensities = map_coordinates(R, line_points.T, order=1, mode='nearest')
+
+    # Normalize distances
+    distances = t_values
+
+    # Optional: Plot the intensity profile
+    if plot:
+        plt.figure(figsize=(10, 6))
+        plt.plot(distances, intensities, label="Intensity")
+        plt.axvline(0, color="red", linestyle="--", label="Centroid")
+        plt.title("Intensity Along Principal Axis (3D)")
+        plt.xlabel("Distance Along Principal Axis")
+        plt.ylabel("Voxel Intensity")
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+    return distances, intensities
