@@ -458,16 +458,17 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
             pad_amount = width - ito_image.shape[1]
             ito_image = np.pad(ito_image, ((0, 0), (0, pad_amount)), mode='constant', constant_values=0)
         
+        cam_image = cam_image[:, x_min:x_max]
+        ito_image = ito_image[:, x_min:x_max]
 
         y_min = max(0, nonzero_y_cam[0] - margin)
         y_max = min(cam_image.shape[0], nonzero_y_cam[-1] + margin)
-    
         z_min = max(0, nonzero_z_ito[0] - margin)
         z_max = min(ito_image.shape[0], nonzero_z_ito[-1] + margin)
 
         # crop images if needed
-        cam_image = cam_image[y_min:y_max, x_min:x_max]
-        ito_image = ito_image[z_min:z_max, x_min:x_max]
+        cam_image = cam_image[y_min:y_max, :]
+        ito_image = ito_image[z_min:z_max, :]
 
 
     if scaling:
