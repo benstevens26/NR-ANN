@@ -425,6 +425,7 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
             pad_amount = (ito_x_pixels - cam_x_pixels) // 2
             cam_image = np.pad(cam_image, ((0, 0), (pad_amount, ito_x_pixels - cam_x_pixels - pad_amount)), mode='constant')
 
+
     if pad_style == 'match_bragg_peak':
         margin=50
         cam_sum_x, ito_sum_x = np.sum(cam_image, axis=0), np.sum(ito_image, axis=0)
@@ -436,18 +437,21 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
         if shift_x < 0: # pad cam on the right
             cam_image = np.pad(cam_image, ((0, 0), (0, -shift_x)), mode='constant', constant_values=0)
 
-        nonzero_x_cam, nonzero_x_ito = np.nonzero(np.sum(cam_image, axis=1))[0], np.nonzero(np.sum(ito_image, axis=1))[0]
-        nonzero_y_cam, nonzero_y_ito = np.nonzero(np.sum(cam_image, axis=0))[0], np.nonzero(np.sum(ito_image, axis=0))[0]
+        nonzero_x_cam, nonzero_x_ito = np.nonzero(np.sum(cam_image, axis=0))[0], np.nonzero(np.sum(ito_image, axis=0))[0]
+        nonzero_y_cam, nonzero_z_ito = np.nonzero(np.sum(cam_image, axis=1))[0], np.nonzero(np.sum(ito_image, axis=1))[0]
 
         plot_x_min = min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin
         plot_x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin
         
-        plot_y_min = min(nonzero_y_cam[0], nonzero_y_ito[0]) - margin
-        plot_y_max = max(nonzero_y_cam[-1], nonzero_y_ito[-1]) + margin
+        plot_y_min = nonzero_y_cam[0] - margin
+        plot_y_max = nonzero_y_cam[-1] + margin
+
+        plot_z_min = nonzero_z_ito[0] - margin
+        plot_z_max = nonzero_z_ito[-1] + margin
 
         # crop images
-        cam_image = cam_image[plot_x_min:plot_x_max, plot_y_min:plot_y_max]
-        ito_image = ito_image[plot_x_min:plot_x_max, plot_y_min:plot_y_max]
+        cam_image = cam_image[plot_y_min:plot_y_max, plot_x_min:plot_x_max]
+        ito_image = ito_image[plot_z_min:plot_z_max, plot_x_min:plot_x_max]
 
     if scaling:
         scale_factor = np.sum(cam_image) / np.sum(ito_image)

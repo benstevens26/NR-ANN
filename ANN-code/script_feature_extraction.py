@@ -69,14 +69,12 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     cam_image, ito_image = preprocess_3d(cam_image, ito_image)
     filename = cam_path
 
-    R = extract_R(cam_image, ito_image, downsample=True, downsample_factor=2).astype(np.float32)
-
-    if np.sum(R) == 0: # weird event has sumR = 0
-        continue
+    R = extract_R(cam_image, ito_image, downsample=False, downsample_factor=2).astype(np.float32)
 
     axis, _ = extract_axis_3d(R)
 
     recoil_angle_3d = extract_recoil_angle_3d(axis)
+
 
     # Append features to dataframe
     features_dataframe = features_dataframe._append(
