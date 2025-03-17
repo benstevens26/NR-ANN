@@ -439,27 +439,27 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
             shift_x = abs(shift_x)
             ito_image = np.pad(ito_image, ((0, 0), (shift_x, 0)), mode='constant', constant_values=0)
 
-        nonzero_x_cam, nonzero_x_ito = np.nonzero(np.sum(cam_image, axis=0))[0], np.nonzero(np.sum(ito_image, axis=0))[0]
-        nonzero_y_cam, nonzero_z_ito = np.nonzero(np.sum(cam_image, axis=1))[0], np.nonzero(np.sum(ito_image, axis=1))[0]
+        # now the peaks are at the same x value, we now crop
+        nonzero_x_cam = np.nonzero(np.sum(cam_image, axis=0))[0]
+        nonzero_x_ito = np.nonzero(np.sum(ito_image, axis=0))[0]
+        nonzero_y_cam = np.nonzero(np.sum(cam_image, axis=1))[0]
+        nonzero_z_ito = np.nonzero(np.sum(ito_image, axis=1))[0]
 
         if len(nonzero_x_cam) == 0 or len(nonzero_x_ito) == 0:
             raise ValueError("One of the images has no nonzero pixels after processing.")
         
-        x_min = max(0, min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin) # find min nonzero x
+        x_min = max(0, min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin) # find min nonzero x (left border)
         x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin 
-        width = x_max - x_min
 
-        # pad if needed to match x dims
-        if cam_image.shape[1] < width:
-            pad_amount = width - cam_image.shape[1]
+        # ensure that camera and ito have at least x_max pixels
+        if cam_image.shape[1] < x_max:
+            pad_amount = x_max - cam_image.shape[1]
             cam_image = np.pad(cam_image, ((0, 0), (0, pad_amount)), mode='constant', constant_values=0)
 
-        if ito_image.shape[1] < width:
-            pad_amount = width - ito_image.shape[1]
+        if ito_image.shape[1] < x_max:
+            pad_amount = x_max - ito_image.shape[1]
             ito_image = np.pad(ito_image, ((0, 0), (0, pad_amount)), mode='constant', constant_values=0)
-        
-        cam_image = cam_image[:, x_min:x_max]
-        ito_image = ito_image[:, x_min:x_max]
+
 
         y_min = max(0, nonzero_y_cam[0] - margin)
         y_max = min(cam_image.shape[0], nonzero_y_cam[-1] + margin)
@@ -467,8 +467,8 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
         z_max = min(ito_image.shape[0], nonzero_z_ito[-1] + margin)
 
         # crop images if needed
-        cam_image = cam_image[y_min:y_max, :]
-        ito_image = ito_image[z_min:z_max, :]
+        cam_image = cam_image[y_min:y_max, x_min:x_max]
+        ito_image = ito_image[z_min:z_max, x_min:x_max]
 
 
     if scaling:
