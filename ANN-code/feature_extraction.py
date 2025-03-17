@@ -430,35 +430,46 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
         margin=50
         cam_sum_x, ito_sum_x = np.sum(cam_image, axis=0), np.sum(ito_image, axis=0)
 
-        # shift along x axis by padding cam, so that the peak intensity of cam_sum_x aligns with the peak intensity of ito_sum_x
+        # shift 
         shift_x = np.argmax(ito_sum_x) - np.argmax(cam_sum_x)
-        if shift_x > 0: # pad cam on the left
+
+        if shift_x > 0: # ito peak is right of cam, so pad cam from left by shift_x
             cam_image = np.pad(cam_image, ((0, 0), (shift_x, 0)), mode='constant', constant_values=0)
-        if shift_x < 0: # pad cam on the right
-            cam_image = np.pad(cam_image, ((0, 0), (0, -shift_x)), mode='constant', constant_values=0)
+        if shift_x < 0: # cam peak is right of ito, so pad ito from left by shift_x
+            shift_x = abs(shift_x)
+            ito_image = np.pad(ito_image, ((0, 0), (shift_x, 0)), mode='constant', constant_values=0)
 
         nonzero_x_cam, nonzero_x_ito = np.nonzero(np.sum(cam_image, axis=0))[0], np.nonzero(np.sum(ito_image, axis=0))[0]
         nonzero_y_cam, nonzero_z_ito = np.nonzero(np.sum(cam_image, axis=1))[0], np.nonzero(np.sum(ito_image, axis=1))[0]
 
-        plot_x_min = min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin
-        plot_x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin
-        min_x = plot_x_max - plot_x_min
-
-        if cam_image.shape[1] < min_x:
-            cam_image = np.pad(cam_image, ((0, 0), (0, min_x - cam_image.shape[1])), mode='constant', constant_values=0)
+        if len(nonzero_x_cam) == 0 or len(nonzero_x_ito) == 0:
+            raise ValueError("One of the images has no nonzero pixels after processing.")
         
-        if ito_image.shape[1] < min_x:
-            ito_image = np.pad(ito_image, ((0, 0), (0, min_x - ito_image.shape[1])), mode='constant', constant_values=0)
 
-        plot_y_min = nonzero_y_cam[0] - margin
-        plot_y_max = nonzero_y_cam[-1] + margin
+        x_min = max(0, min(nonzero_x_cam[0], nonzero_x_ito[0] - margin)) # find min nonzero x
+        x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin 
+        width = x_max - x_min
 
-        plot_z_min = nonzero_z_ito[0] - margin
-        plot_z_max = nonzero_z_ito[-1] + margin
+        # pad if needed to match x dims
+        if cam_image.shape[1] < width:
+            pad_amount = width - cam_image.shape[1]
+            cam_image = np.pad(cam_image, ((0, 0), (0, pad_amount)), mode='constant', constant_values=0)
 
-        # crop images
-        cam_image = cam_image[plot_y_min:plot_y_max, plot_x_min:plot_x_max]
-        ito_image = ito_image[plot_z_min:plot_z_max, plot_x_min:plot_x_max]
+        if ito_image.shape[1] < width:
+            pad_amount = width - ito_image.shape[1]
+            ito_image = np.pad(ito_image, ((0, 0), (0, pad_amount)), mode='constant', constant_values=0)
+        
+
+        y_min = max(0, nonzero_y_cam[0] - margin)
+        y_max = min(cam_image.shape[0], nonzero_y_cam[-1] + margin)
+    
+        z_min = max(0, nonzero_z_ito[0] - margin)
+        z_max = min(ito_image.shape[0], nonzero_z_ito[-1] + margin)
+
+        # crop images if needed
+        cam_image = cam_image[y_min:y_max, x_min:x_max]
+        ito_image = ito_image[z_min:z_max, x_min:x_max]
+
 
     if scaling:
         scale_factor = np.sum(cam_image) / np.sum(ito_image)
