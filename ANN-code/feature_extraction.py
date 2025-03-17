@@ -442,12 +442,13 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
 
         plot_x_min = min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin
         plot_x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin
+        min_x = plot_x_max - plot_x_min
 
-        if cam_image.shape[1] < plot_x_max:
-            cam_image = np.pad(cam_image, ((0, 0), (0, plot_x_max - cam_image.shape[1])), mode='constant', constant_values=0)
+        if cam_image.shape[1] < min_x:
+            cam_image = np.pad(cam_image, ((0, 0), (0, min_x - cam_image.shape[1])), mode='constant', constant_values=0)
         
-        if ito_image.shape[1] < plot_x_max:
-            ito_image = np.pad(ito_image, ((0, 0), (0, plot_x_max - ito_image.shape[1])), mode='constant', constant_values=0)
+        if ito_image.shape[1] < min_x:
+            ito_image = np.pad(ito_image, ((0, 0), (0, min_x - ito_image.shape[1])), mode='constant', constant_values=0)
 
         plot_y_min = nonzero_y_cam[0] - margin
         plot_y_max = nonzero_y_cam[-1] + margin
