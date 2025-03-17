@@ -445,8 +445,7 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
         if len(nonzero_x_cam) == 0 or len(nonzero_x_ito) == 0:
             raise ValueError("One of the images has no nonzero pixels after processing.")
         
-
-        x_min = max(0, min(nonzero_x_cam[0], nonzero_x_ito[0] - margin)) # find min nonzero x
+        x_min = max(0, min(nonzero_x_cam[0], nonzero_x_ito[0]) - margin) # find min nonzero x
         x_max = max(nonzero_x_cam[-1], nonzero_x_ito[-1]) + margin 
         width = x_max - x_min
 
