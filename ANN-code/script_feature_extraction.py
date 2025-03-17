@@ -66,7 +66,7 @@ features_dataframe = pd.DataFrame(columns=features)
 for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noise, load images, and create event objects
     cam_image = noise_adder(np.load(cam_path), m_dark, example_dark_list)
     ito_image = np.load(ito_path)
-    cam_image, ito_image = preprocess_3d(cam_image, ito_image)
+    cam_image, ito_image = preprocess_3d(cam_image, ito_image, pad_style="match_bragg_peak")
     filename = cam_path
 
     R = extract_R(cam_image, ito_image, downsample=False, downsample_factor=2).astype(np.float32)
