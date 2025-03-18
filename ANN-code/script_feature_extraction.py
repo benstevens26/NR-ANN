@@ -120,19 +120,18 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
         distances_3d, intensities_3d = extract_intensity_profile_3d(R, principal_axis=axis_3d, centroid=centroid_3d)
         distances_cam, intensities_cam = extract_intensity_profile(cam_image, principal_axis=cam_axis, centroid=cam_centroid)
         distances_ito, intensities_ito = extract_intensity_profile(ito_image, principal_axis=ito_axis, centroid=ito_centroid)
+        
+        distances_3d = distances_3d[np.nonzero(intensities_3d)] # remove zeros as they affect stats
+        intensities_3d = intensities_3d[np.nonzero(intensities_3d)]
+        distances_cam = distances_cam[np.nonzero(intensities_cam)]
+        intensities_cam = intensities_cam[np.nonzero(intensities_cam)]
+        distances_ito = distances_ito[np.nonzero(intensities_ito)]
+        intensities_ito = intensities_ito[np.nonzero(intensities_ito)]
     except:
         distances_3d, intensities_3d = None, None
         distances_cam, intensities_cam = None, None
         distances_ito, intensities_ito = None, None
-
-
-    distances_3d = distances_3d[np.nonzero(intensities_3d)] # remove zeros as they affect stats
-    intensities_3d = intensities_3d[np.nonzero(intensities_3d)]
-    distances_cam = distances_cam[np.nonzero(intensities_cam)]
-    intensities_cam = intensities_cam[np.nonzero(intensities_cam)]
-    distances_ito = distances_ito[np.nonzero(intensities_ito)]
-    intensities_ito = intensities_ito[np.nonzero(intensities_ito)]
-
+    
     # from filename
     match = re.search(r'_(\d+\.\d+)cm_', filename)
     if match:
