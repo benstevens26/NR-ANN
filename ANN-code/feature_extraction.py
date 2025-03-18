@@ -305,7 +305,7 @@ def extract_intensity_profile(
             plt.grid()
             plt.show()
 
-        return distances, intensities
+        return distances, np.array(intensities)
 
     else:
         raise ValueError(f"Unsupported method: {method}")
