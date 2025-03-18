@@ -112,6 +112,10 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     cam_image, ito_image = preprocess_3d(cam_raw, ito_raw, pad_style='match_x_at_zero')
     R = extract_R(cam_image, ito_image, downsample=True, downsample_factor=2).astype(np.float32)
     axis_3d, centroid_3d = extract_axis_3d(R)
+
+    if axis_3d is None: # if no axis is found, skip the image
+        continue
+
     cam_axis, cam_centroid = extract_axis(cam_image)
     ito_axis, ito_centroid  = extract_axis(ito_image)
 

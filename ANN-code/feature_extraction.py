@@ -587,7 +587,10 @@ def extract_axis_3d(R):
         cov_matrix = np.cov(coords.T, aweights=None)
 
     # Eigen-decomposition
-    eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+    try:
+        eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+    except:
+        return None, None
 
     # Extract principal axis
     principal_axis = eigenvectors[:, np.argmax(eigenvalues)]
