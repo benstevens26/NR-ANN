@@ -7,7 +7,7 @@ input_dir = 'job_outputs'
 output_file = '3d_angles.csv'
 
 # Get all CSV files in the directory
-csv_files = sorted(glob.glob(os.path.join(input_dir, 'features_*.csv')))
+csv_files = sorted(glob.glob(os.path.join(input_dir, '*.csv')))
 
 # Concatenate all CSV files into one DataFrame
 df_list = [pd.read_csv(file) for file in csv_files]

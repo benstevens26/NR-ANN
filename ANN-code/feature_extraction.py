@@ -578,16 +578,13 @@ def extract_axis_3d(R):
     try:
         centroid = np.average(coords, axis=0, weights=intensities)
     except:
-        centroid = np.average(coords, axis=0, weights=np.abs(intensities))
-
-    # Center coordinates by subtracting centroid
-    coords_centered = coords - centroid
+        centroid = np.average(coords, axis=0, weights=None)
 
     # Compute weighted covariance matrix
     try:
         cov_matrix = np.cov(coords.T, aweights=intensities)
     except:
-        cov_matrix = np.cov(coords.T, aweights=np.abs(intensities))
+        cov_matrix = np.cov(coords.T, aweights=None)
 
     # Eigen-decomposition
     eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
