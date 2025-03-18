@@ -143,7 +143,7 @@ def get_dark_sample(m_dark, im_dims, example_dark):
         np.random.randint(0, m_dark_dims[0] - im_dims[0]),
         np.random.randint(0, m_dark_dims[1] - im_dims[1]),
     ]
-
+    
     m_dark_sample = [
         m_dark[sample_start[1] + i][sample_start[0] : sample_start[0] + im_dims[0]]
         for i in range(0, im_dims[1])

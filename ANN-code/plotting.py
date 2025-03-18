@@ -7,6 +7,7 @@ import os
 import csv
 from tqdm import tqdm
 import re
+from preprocess import preprocess_file_path_unscaled
 
 
 
@@ -22,7 +23,9 @@ save = False
 ROC_curve = True
 confusion_matrix = True
 prediction_with_energy = False
-gradcam = True
+gradcam = False
+blank_analyis = True
+noise_analysis = False
 
 # -=+ dataset +=-
 biased = False
@@ -30,7 +33,7 @@ exclude_low_energies = False
 
 # -=+ details +=-
 make_predictions = False
-CoNNCR_version = 4
+CoNNCR_version = 5
 predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
 if CoNNCR_version <= 3:
     use_unscaled = False
@@ -64,10 +67,14 @@ elif which == "C":
             custom_objects={"softmax_v2": tf.keras.activations.softmax},
         )
       # load CoNNCR
+    model = tf.keras.models.load_model(
+            f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v5/initial_training/CoNNCR-R_partially_tuned.keras",
+            custom_objects={"softmax_v2": tf.keras.activations.softmax},
+        )
 
     base_dir_list = [
         (
-            "/vols/lz/twatson/ANN/preprocessed_images_unscaled"
+            "/vols/lz/twatson/ANN/final_ims"
             if use_unscaled
             else "/vols/lz/twatson/ANN/preprocessed_images"
         )
@@ -97,7 +104,7 @@ elif which == "both":
         ],
         [
             (
-                "/vols/lz/twatson/ANN/preprocessed_images_unscaled"
+                "/vols/lz/twatson/ANN/final_ims"
                 if use_unscaled
                 else "/vols/lz/twatson/ANN/preprocessed_images"
             )
@@ -110,7 +117,7 @@ def get_file_list(seed=77, test_only=False, which=which, use_unscaled=use_unscal
     # use CoNNCR dataset and match LENRI filepaths as required
     base_dirs = [
         (
-            "/vols/lz/twatson/ANN/preprocessed_images_unscaled"
+            "/vols/lz/twatson/ANN/final_ims"
             if use_unscaled
             else "/vols/lz/twatson/ANN/preprocessed_images"
         )
@@ -184,9 +191,12 @@ with open(predictions_file_path, mode="r") as file:
 
         # Determine ground truth class from filename
         true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
-        energy = float(re.search(r'unscaled/([\d.]+)keV', file_path).group(1))
+        energy = float(re.search(r'_ims/([\d.]+)keV', file_path).group(1))
         # Store information in a structured format
         data.append([file_path, true_class, energy, prediction[1]])
+
+
+
 
 # Exclude data as desired
 if exclude_low_energies:
@@ -208,6 +218,23 @@ if biased:
     
     data = C_data + F_data
     np.random.shuffle(data)
+
+def undo_preprocess(img):
+    # Add back the mean pixel values
+    img[:, :, 0] += 103.939  # Blue
+    img[:, :, 1] += 116.779  # Green
+    img[:, :, 2] += 123.68   # Red
+
+    # Convert from BGR back to RGB
+    img = img[:, :, ::-1]
+
+    # Rescale to 0-255
+    min_val = np.min(img)
+    max_val = np.max(img)
+    img = (img - min_val) / (max_val - min_val) * 255
+
+    return img.astype(np.uint8)
+
 
 if prediction_with_energy:
     labels = np.array([i[1] for i in data])
@@ -243,6 +270,22 @@ print(f"Exclude low energy? {exclude_low_energies}")
 print(f"Accuracy: {accuracy:.2%}")
 
 
+
+    
+
+if blank_analyis:
+    
+    blanks = [np.zeros((np.random.randint(40,60), np.random.randint(40,60))) for i in range(10)]
+    preprocessed = [preprocess_file_path_unscaled(blank) for blank in blanks]
+    predictions = []
+    for file in preprocessed:
+        plt.imshow(file.numpy().astype(np.uint8))
+        plt.show()
+        preds = model.predict(np.expand_dims(file,axis=0))
+        print("Predicted:", preds[0])
+        predictions.append(preds[0])
+
+
 if gradcam:
     os.environ["KERAS_BACKEND"] = "tensorflow"
     import keras
@@ -251,7 +294,7 @@ if gradcam:
     img_size=(224, 224)
     last_conv_layer_name = "block5_conv3"
     
-    img_path = data[0][0]
+    img_path = "/vols/lz/twatson/ANN/final_ims/1.005keV_0.000_0.000_F_1.799cm_2152_im.npy"
     # needs to be "batched"
     img_array = np.load(img_path)
     img_array = np.expand_dims(img_array, axis=0)
@@ -268,3 +311,26 @@ if gradcam:
     plt.show()
     
     save_and_display_gradcam(img_array[0], heatmap)
+
+if noise_analysis:
+    event = np.load('/vols/lz/tmarley/GEM_ITO/run/im2/F/197.711keV_0.000_0.000_F_2.207cm_5465_im.npy')
+    copies = [preprocess_file_path_unscaled(event) for i in range(10)]
+    fig, axs = plt.subplots(10,2, figsize=(3, 15))
+    for i in range(10):
+        img_array = np.expand_dims(copies[i],axis=0)
+        pred = model.predict(img_array)[0][1]
+        model.layers[-1].activation = None
+        
+        heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
+        axs[i][0].imshow(img_array[0, :, :, 0].astype(np.uint8), cmap="gray")
+        axs[i][0].set_ylabel(f"{pred:.2f}")
+        axs[i][1].matshow(heatmap)
+    for axis in axs:
+        for axis2 in axis:
+            # axis2.set_axis_off()
+            axis2.set_frame_on(True)
+            axis2.get_xaxis().set_visible(False)
+            # axis2.get_yaxis().set_visible(False)
+    fig.show()
+
+        # save_and_display_gradcam(img_array[0], heatmap)

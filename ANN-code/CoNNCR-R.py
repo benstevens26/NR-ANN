@@ -251,7 +251,7 @@ elif not use_working_version:
 # model.layers[0].input_dtype = tf.float32
 
 
-freeze = True # Freeze convolutional layers for initial training
+freeze = False # Freeze convolutional layers for initial training
 if freeze:
     for layer in model.layers[:-num_new_layers]:
         layer.trainable = False
@@ -313,8 +313,8 @@ early_stopping = keras.callbacks.EarlyStopping(
     monitor="val_accuracy", patience=5, restore_best_weights=True
 )
 
-# load in epoch 1
-# model.load_weights("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v2/epoch-01.keras")
+# load in latest epoch
+# model.load_weights("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v5/ckpt/finetuned/epoch-30.keras")
 # print(notavaraible)
 
 
@@ -324,7 +324,7 @@ train_start_time = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
 history = model.fit(
     train_dataset,
     epochs=epochs,
-    # initial_epoch=1,
+    # initial_epoch=30,
     # steps_per_epoch=(train_size // batch_size),
     # validation_steps = (val_size // batch_size),
     # batch_size=batch_size,
@@ -398,7 +398,7 @@ if finetune:
         for layer in model.layers[:-num_new_layers]:
             layer.trainable = True
         opt = tf.keras.optimizers.Adam(
-            learning_rate=1e-6
+            learning_rate=1e-5
         )
     loss = tf.keras.losses.SparseCategoricalCrossentropy()
 

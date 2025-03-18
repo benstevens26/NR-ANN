@@ -94,7 +94,12 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None
 # plt.matshow(heatmap)
 # plt.show()
 
-def save_and_display_gradcam(img_array, heatmap, cam_path="cam.jpg", alpha=0.4):
+
+
+
+
+
+def save_and_display_gradcam(img_array, heatmap, cam_path="cam.jpg", alpha=0.65):
     # Load the original image
     img = img_array
 
@@ -113,48 +118,64 @@ def save_and_display_gradcam(img_array, heatmap, cam_path="cam.jpg", alpha=0.4):
     jet_heatmap = jet_heatmap.resize((img.shape[1], img.shape[0]))
     jet_heatmap = keras.utils.img_to_array(jet_heatmap)
 
+    
     # Superimpose the heatmap on original image
     superimposed_img = jet_heatmap * alpha + img
     superimposed_img = keras.utils.array_to_img(superimposed_img)
 
-    # Save the superimposed image
+    # # Save the superimposed image
     superimposed_img.save(cam_path)
 
-    # Display Grad CAM
+    # # Display Grad CAM
     display(Image(cam_path))
+    return superimposed_img
 
 
 # save_and_display_gradcam(img_path, heatmap)
 
-import cv2
-import numpy as np
-import matplotlib as mpl
-import keras.utils
-from PIL import Image
+# import cv2
+# import numpy as np
+# import matplotlib as mpl
+# import keras.utils
+# from PIL import Image
 
-def save_and_display_gradcam2(img_array, heatmap, cam_path="cam.jpg", alpha=0.4):
-    # Ensure the input image is uint8
-    if img_array.dtype != np.uint8:
-        img_array = np.uint8(255 * img_array)  # Convert from float if necessary
+# def overlay_heatmap(img_array, heatmap, alpha=0.4):
+#     """
+#     Overlays a heatmap on an image.
 
-    # Rescale heatmap to 0-255
-    heatmap = np.uint8(255 * heatmap)
+#     Parameters:
+#         img_array (np.ndarray): A 224x224x3 image (RGB). Can be in range [0,1] or [0,255].
+#         heatmap (np.ndarray): A 14x14 array with values between 0 and 1.
+#         alpha (float): Opacity of the heatmap overlay (default 0.4).
 
-    # Apply the jet colormap
-    jet = mpl.colormaps["jet"]
-    jet_colors = jet(np.arange(256))[:, :3]
-    jet_heatmap = jet_colors[heatmap]
-
-    # Resize the heatmap properly using INTER_NEAREST for less blurring
-    jet_heatmap = cv2.resize(jet_heatmap, (img_array.shape[1], img_array.shape[0]), interpolation=cv2.INTER_NEAREST)
-
-    # Convert heatmap to float32 for addition
-    jet_heatmap = np.asarray(jet_heatmap, dtype=np.float32)
-
-    # Superimpose the heatmap onto the original image
-    superimposed_img = jet_heatmap * alpha + img_array
-    superimposed_img = np.clip(superimposed_img, 0, 255).astype(np.uint8)  # Clip values to ensure valid pixels
-
-    # Save and display
-    Image.fromarray(superimposed_img).save(cam_path)
-    display(Image.open(cam_path))
+#     The function scales the heatmap to 0-255, applies the jet colormap, resizes it to match 
+#     the image dimensions using INTER_NEAREST, and then overlays it on the image.
+#     It displays the resulting image.
+#     """
+#     # Convert img_array to uint8 if necessary
+#     if img_array.dtype != np.uint8:
+#         # If the maximum value is <= 1, assume the image is in [0,1] range
+#         if img_array.max() <= 1:
+#             img_array = np.uint8(img_array * 255)
+#         else:
+#             img_array = np.uint8(img_array)
+    
+#     # Scale heatmap from 0-1 to 0-255
+#     heatmap_scaled = np.uint8(heatmap * 255)
+    
+#     # Apply the jet colormap (OpenCV uses BGR by default)
+#     heatmap_color = cv2.applyColorMap(heatmap_scaled, cv2.COLORMAP_JET)
+    
+#     # Resize the heatmap to match the image dimensions using INTER_NEAREST to reduce blurring
+#     heatmap_color = cv2.resize(heatmap_color, (img_array.shape[1], img_array.shape[0]), interpolation=cv2.INTER_NEAREST)
+    
+#     # Convert heatmap from BGR to RGB for correct color display with matplotlib
+#     heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
+    
+#     # Superimpose the heatmap on the original image using weighted addition
+#     superimposed_img = cv2.addWeighted(img_array, 1 - alpha, heatmap_color, alpha, 0)
+    
+#     # Display the final superimposed image
+#     plt.imshow(superimposed_img)
+#     plt.axis('off')
+#     plt.show()

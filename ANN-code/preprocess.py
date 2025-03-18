@@ -96,19 +96,19 @@ def get_file_list(seed=77):
 
 file_list = get_file_list()
 
-for i in range(10):
-    example_dark_list_unbinned = np.load(
-    f"{dark_dir}/quest_std_dark_{i}.npy"
-    )
-    example_dark_tensor = tf.convert_to_tensor(
-        example_dark_list_unbinned, dtype=tf.float32
-    )
-    start_idx = i * (len(file_list) // 10)
-    end_idx = (i + 1) * (len(file_list) // 10)
-    for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing chunk {i+1}/{10}"):
-        image = np.load(file_path)
-        image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
-        np.save(
-            f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
-            image,
-        )
+# for i in range(10):
+#     example_dark_list_unbinned = np.load(
+#     f"{dark_dir}/quest_std_dark_{i}.npy"
+#     )
+#     example_dark_tensor = tf.convert_to_tensor(
+#         example_dark_list_unbinned, dtype=tf.float32
+#     )
+#     start_idx = i * (len(file_list) // 10)
+#     end_idx = (i + 1) * (len(file_list) // 10)
+#     for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing chunk {i+1}/{10}"):
+#         image = np.load(file_path)
+#         image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
+#         np.save(
+#             f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
+#             image,
+#         )
