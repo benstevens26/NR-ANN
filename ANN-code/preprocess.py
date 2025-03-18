@@ -2,7 +2,8 @@ import numpy as np
 import tensorflow as tf
 from cnn_processing import noise_adder, smooth_operator
 from tqdm import tqdm
-import os
+import os, re
+from skimage.filters import threshold_otsu
 
 base_dirs = [
     "/vols/lz/tmarley/GEM_ITO/run/im0/C",
@@ -52,8 +53,8 @@ def preprocess_file_path_unscaled(
     image, m_dark=m_dark_tensor, example_dark_list=example_dark_tensor
 ):
     image1 = noise_adder(image, m_dark=m_dark, example_dark_list=example_dark_list)
-    image2 = smooth_operator(image1)
-    image2 = image2.astype(np.float32)
+    image2 = smooth_operator(image1).astype(np.float32)
+    image2 *= image2 > threshold_otsu(image2)
     image2 -= np.min(image2)
     image3 = 255 * image2 / np.max(image2)
     image3 = np.repeat(image3[:, :, np.newaxis], 3, axis=-1)
@@ -63,7 +64,7 @@ def preprocess_file_path_unscaled(
     return image5
 
 
-def get_file_list(seed=77):
+def get_file_list(seed=77, min_energy=10):
     uncropped_error = np.loadtxt(
         "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
         delimiter=",",
@@ -84,7 +85,7 @@ def get_file_list(seed=77):
             files = [
                 f
                 for f in files
-                if (f.endswith(".npy") and os.path.join(root, f) not in errors)
+                if (f.endswith(".npy") and os.path.join(root, f) not in errors and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) > min_energy)
             ]
             file_list.extend([os.path.join(root, file) for file in files])
 
@@ -94,21 +95,22 @@ def get_file_list(seed=77):
     return file_list
 
 
-file_list = get_file_list()
+file_list = get_file_list()[:10]
 
-# for i in range(10):
-#     example_dark_list_unbinned = np.load(
-#     f"{dark_dir}/quest_std_dark_{i}.npy"
-#     )
-#     example_dark_tensor = tf.convert_to_tensor(
-#         example_dark_list_unbinned, dtype=tf.float32
-#     )
-#     start_idx = i * (len(file_list) // 10)
-#     end_idx = (i + 1) * (len(file_list) // 10)
-#     for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing chunk {i+1}/{10}"):
-#         image = np.load(file_path)
-#         image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
-#         np.save(
-#             f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
-#             image,
-#         )
+
+for i in range(10):
+    example_dark_list_unbinned = np.load(
+    f"{dark_dir}/quest_std_dark_{i}.npy"
+    )
+    example_dark_tensor = tf.convert_to_tensor(
+        example_dark_list_unbinned, dtype=tf.float32
+    )
+    start_idx = i * (len(file_list) // 10)
+    end_idx = (i + 1) * (len(file_list) // 10)
+    for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing chunk {i+1}/{10}"):
+        image = np.load(file_path)
+        image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
+        np.save(
+            f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
+            image,
+        )
