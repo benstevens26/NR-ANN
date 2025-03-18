@@ -389,7 +389,31 @@ def subdivxy(im,xscale,yscale):
 
     return im_large
 
-def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_peak'):
+def compute_alpha(theta_xy_deg, theta_xz_deg):
+    """
+    Computes the angle α (alpha) between a 3D line and the +x-axis given the projection angles
+    θ_xy and θ_xz in the xy-plane and xz-plane, respectively.
+
+    Parameters:
+    theta_xy_deg (float): Angle θ_xy in degrees.
+    theta_xz_deg (float): Angle θ_xz in degrees.
+
+    Returns:
+    float: Angle α in degrees.
+    """
+    # Convert degrees to radians
+    theta_xy = np.radians(theta_xy_deg)
+    theta_xz = np.radians(theta_xz_deg)
+
+    # Compute alpha using the given formula
+    alpha_rad = np.arccos(1 / np.sqrt(1 + np.tan(theta_xy)**2 + np.tan(theta_xz)**2))
+
+    # Convert back to degrees
+    alpha_deg = np.degrees(alpha_rad)
+
+    return alpha_deg
+
+def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_peak', ito_smoothing=14):
     """
     3d preprocessing
     """
@@ -406,7 +430,7 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
     ito_image = subdivxy(ito_image, 42, 13)
 
     # smooth and threshold ito_image
-    ito_image = gaussian_smoothing(ito_image, 14)
+    ito_image = gaussian_smoothing(ito_image, ito_smoothing)
     ito_threshold = threshold_otsu(ito_image)
     ito_above_threshold = ito_image.copy()
     ito_above_threshold[ito_above_threshold < ito_threshold] = 0
@@ -439,9 +463,12 @@ def preprocess_3d(cam_image, ito_image, scaling=True, pad_style='match_bragg_pea
             shift_x = abs(shift_x)
             ito_image = np.pad(ito_image, ((0, 0), (shift_x, 0)), mode='constant', constant_values=0)
 
+        # recalculate sums
+        cam_sum_x, ito_sum_x = np.sum(cam_image, axis=0), np.sum(ito_image, axis=0)
+
         # now the peaks are at the same x value, we now crop
-        nonzero_x_cam = np.nonzero(np.sum(cam_image, axis=0))[0]
-        nonzero_x_ito = np.nonzero(np.sum(ito_image, axis=0))[0]
+        nonzero_x_cam = np.nonzero(cam_sum_x)[0]
+        nonzero_x_ito = np.nonzero(ito_sum_x)[0]
         nonzero_y_cam = np.nonzero(np.sum(cam_image, axis=1))[0]
         nonzero_z_ito = np.nonzero(np.sum(ito_image, axis=1))[0]
 
@@ -611,15 +638,14 @@ def extract_track_volume(R, downsample_factor, sparse=False):
 
 
 
-
-
 def extract_intensity_profile_3d(
     R: np.ndarray,
     method: str = "thin_intensity_profile",
     plot: bool = False,
     principal_axis: np.ndarray = None,
     centroid: tuple = None,
-    num_points: int = 500
+    num_points: int = 500,
+    downsample_factor: int = 2,
 ):
     """
     Extracts an intensity profile along the principal axis of a 3D voxelized image.
@@ -655,6 +681,9 @@ def extract_intensity_profile_3d(
     # Normalize distances
     distances = t_values
 
+    #account for downsample factor
+    distances = distances * downsample_factor
+
     # Optional: Plot the intensity profile
     if plot:
         plt.figure(figsize=(10, 6))
@@ -668,3 +697,33 @@ def extract_intensity_profile_3d(
         plt.show()
 
     return distances, intensities
+
+
+def extract_length_simple(
+    distances: np.ndarray = None,
+    intensities: list = None,
+) -> float:
+    """
+    Calculates the length of the 3d track
+    Only suitable if preprocessing is good
+    """
+
+    # indices of non-zero intensities
+    nonzero_I = np.nonzero(intensities)[0]
+
+    # largest non-zero intensity
+    nonzero_I_max = nonzero_I[-1]
+    nonzero_I_min = nonzero_I[0]
+
+    recoil_length = distances[nonzero_I_max] - distances[nonzero_I_min]
+
+    return recoil_length
+
+
+def extract_track_area(image):
+
+    pixel_area = (40e-6 * 40e-6) # in m^2
+
+    area = np.count_nonzero(image) * pixel_area
+
+    return area

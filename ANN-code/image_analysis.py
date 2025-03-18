@@ -222,7 +222,63 @@ def plot_3d(image: np.ndarray) -> None:
     # Show the plot
     plt.show()
 
-def plot_voxels(R, downsample_factor=4):
+def plot_voxels(R, downsample_factor=4, bare=False):
+    import plotly.graph_objects as go
+    if bare:
+        # Find nonzero indices
+        nonzero_indices = np.nonzero(R)
+
+        # Bounding box limits
+        xmin, xmax = nonzero_indices[0].min(), nonzero_indices[0].max()
+        ymin, ymax = nonzero_indices[1].min(), nonzero_indices[1].max()
+        zmin, zmax = nonzero_indices[2].min(), nonzero_indices[2].max()
+
+        # Crop R to bounding box
+        R_cropped = R[xmin:xmax+1, ymin:ymax+1, zmin:zmax+1]
+
+        # Downsample
+        factor = downsample_factor
+        R_downsampled = block_reduce(R_cropped, block_size=(factor, factor, factor), func=np.max)
+
+        voxel_size = 0.019  # Each voxel is ~0.019mm
+
+        X = (np.linspace(xmin, xmax, R_downsampled.shape[0]) * voxel_size).repeat(R_downsampled.shape[1] * R_downsampled.shape[2])
+        Y = (np.tile(np.linspace(ymin, ymax, R_downsampled.shape[1]).repeat(R_downsampled.shape[2]), R_downsampled.shape[0]) * voxel_size)
+        Z = (np.tile(np.linspace(zmin, zmax, R_downsampled.shape[2]), R_downsampled.shape[0] * R_downsampled.shape[1]) * voxel_size)
+        values = R_downsampled.flatten()
+
+        mask = values > 0  # Create a boolean mask where R > 0
+
+        X = X[mask]
+        Y = Y[mask]
+        Z = Z[mask]
+        values = values[mask] 
+
+        fig = go.Figure(data=go.Volume(
+            x=X,
+            y=Y,
+            z=Z,
+            value=values,
+            opacity=0.5,
+            surface_count=15,
+            colorscale='Viridis',
+            showscale=False  # Hide colorbar
+        ))
+
+        # Remove all axes, grid, background, and titles
+        fig.update_layout(
+            scene=dict(
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                zaxis=dict(visible=False),
+                annotations=[],
+                bgcolor="rgba(0,0,0,0)"
+            ),
+            margin=dict(l=0, r=0, t=0, b=0)  # Remove any margins
+        )
+
+        fig.show()
+        return
 
     # Find nonzero indices
     nonzero_indices = np.nonzero(R)
@@ -341,21 +397,62 @@ def plot_3d_projections(cam_image, ito_image):
 
     # Plot test_cam on the xy plane
     x_cam, y_cam = np.meshgrid(np.arange(cam_image.shape[1]), np.arange(cam_image.shape[0]))
+    x_cam, y_cam = x_cam * 0.019, y_cam * 0.019
     ax.plot_surface(x_cam, y_cam, np.zeros_like(cam_image), rstride=1, cstride=1, facecolors=plt.cm.viridis(cam_image / np.max(cam_image)), shade=False)
 
     # Plot test_ito on the xz plane
     x_ito, z_ito = np.meshgrid(np.arange(ito_image.shape[1]), np.arange(ito_image.shape[0]))
+    x_ito, z_ito = x_ito * 0.019, z_ito * 0.019
     ax.plot_surface(x_ito, np.zeros_like(ito_image), z_ito, rstride=1, cstride=1, facecolors=plt.cm.viridis(ito_image / np.max(ito_image)), shade=False)
 
     # Plot a black yz surface with white text "No Readout"
-    y_no_readout, z_no_readout = np.meshgrid(np.arange(ito_image.shape[0]), np.arange(ito_image.shape[0]))
-    ax.plot_surface(np.zeros_like(y_no_readout), y_no_readout, z_no_readout, color='#440154', shade=False)
+    y_no_readout, z_no_readout = np.meshgrid(np.arange(cam_image.shape[0]), np.arange(ito_image.shape[0]))
+    ax.plot_surface(np.zeros_like(y_no_readout), y_no_readout * 0.019, z_no_readout * 0.019, color='#440154', shade=False)
 
-    ax.set_xlabel('X axis')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
+    ax.set_xlabel('x [mm]')
+    ax.set_ylabel('y [mm]')
+    ax.set_zlabel('z [mm]')
 
     # Rotate the plot for better visibility
-    ax.view_init(elev=30, azim=45)
+    ax.view_init(elev=30, azim=65)
 
     plt.show()
+
+
+def get_matched_paths(cam_file_paths, ito_file_paths, local=True):
+    # Load the min_dim_CF4_true.csv file and extract the IDs
+    import os
+    import pandas as pd
+    if local:
+        min_dim_df = pd.read_csv("../ANN-code/Data/min_dim_CF4_true.csv")
+    else:
+        raise NotImplementedError
+
+    min_dim_list = list(min_dim_df.iloc[:, 0])
+    min_dim_keys = [os.path.basename(path).split('_')[-7] for path in min_dim_list]
+
+    cam_dict = {os.path.basename(path).split('_')[-7]: path for path in cam_file_paths}
+    # Remove min_dim_keys from cam_dict
+    initial_cam_dict_length = len(cam_dict)
+    for key in min_dim_keys:
+        if key in cam_dict:
+            del cam_dict[key]
+    removed_count = initial_cam_dict_length - len(cam_dict)
+
+    ito_dict = {os.path.basename(path).split('_')[-7]: path for path in ito_file_paths}
+
+    matched_paths = []
+    for key in cam_dict:
+        if key in ito_dict:
+            matched_paths.append([cam_dict[key], ito_dict[key]])
+
+    return matched_paths
+
+
+
+import numpy as np
+import plotly.graph_objects as go
+from skimage.measure import block_reduce
+
+
+
