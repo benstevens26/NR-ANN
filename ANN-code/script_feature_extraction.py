@@ -119,7 +119,7 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     distances_cam, intensities_cam = extract_intensity_profile(cam_image, principal_axis=cam_axis, centroid=cam_centroid)
     distances_ito, intensities_ito = extract_intensity_profile(ito_image, principal_axis=ito_axis, centroid=ito_centroid)
     
-    distances_3d = distances_3d[np.nonzeros(intensities_3d)] # remove zeros as they affect stats
+    distances_3d = distances_3d[np.nonzero(intensities_3d)] # remove zeros as they affect stats
     intensities_3d = intensities_3d[np.nonzero(intensities_3d)]
     distances_cam = distances_cam[np.nonzero(intensities_cam)]
     intensities_cam = intensities_cam[np.nonzero(intensities_cam)]
