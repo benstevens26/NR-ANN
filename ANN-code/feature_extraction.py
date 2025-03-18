@@ -715,7 +715,11 @@ def extract_length_simple(
     nonzero_I = np.nonzero(intensities)[0]
 
     # largest non-zero intensity
-    nonzero_I_max = nonzero_I[-1]
+    try:
+        nonzero_I_max = nonzero_I[-1]
+    except:
+        return 0
+
     nonzero_I_min = nonzero_I[0]
 
     recoil_length = distances[nonzero_I_max] - distances[nonzero_I_min]
