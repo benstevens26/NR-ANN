@@ -116,15 +116,9 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     cam_axis, cam_centroid = extract_axis(cam_image)
     ito_axis, ito_centroid  = extract_axis(ito_image)
 
-    if axis_3d is None or cam_axis is None or ito_axis is None: # if no axis is found, skip the image
-        continue
-
     distances_3d, intensities_3d = extract_intensity_profile_3d(R, principal_axis=axis_3d, centroid=centroid_3d)
     distances_cam, intensities_cam = extract_intensity_profile(cam_image, principal_axis=cam_axis, centroid=cam_centroid)
     distances_ito, intensities_ito = extract_intensity_profile(ito_image, principal_axis=ito_axis, centroid=ito_centroid)
-
-    if len(intensities_3d) == 0 or len(intensities_cam) == 0 or len(intensities_ito) == 0:
-        continue
     
     distances_3d = distances_3d[np.nonzero(intensities_3d)] # remove zeros as they affect stats
     intensities_3d = intensities_3d[np.nonzero(intensities_3d)]
@@ -147,40 +141,76 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     max_intensity_ito = np.max(ito_image)
     max_intensity_R = np.max(R)
 
-    track_area_cam = extract_track_area(cam_image)
-    track_area_ito = extract_track_area(ito_image)
-    track_volume_3d = extract_track_volume(R, downsample_factor=2)
+    try:
+        track_area_cam = extract_track_area(cam_image)
+        track_area_ito = extract_track_area(ito_image)
+        track_volume_3d = extract_track_volume(R, downsample_factor=2)
+    except:
+        track_area_cam = np.nan
+        track_area_ito = np.nan
+        track_volume_3d = np.nan    
 
     # principal axis needed
-    recoil_angle_cam = extract_recoil_angle(cam_axis)
-    recoil_angle_ito = extract_recoil_angle(ito_axis)
-    recoil_angle_3d_2 = compute_alpha(recoil_angle_cam, recoil_angle_ito)
+    try:
+        recoil_angle_cam = extract_recoil_angle(cam_axis)
+        recoil_angle_ito = extract_recoil_angle(ito_axis)
+        recoil_angle_3d_2 = compute_alpha(recoil_angle_cam, recoil_angle_ito)
+    except:
+        recoil_angle_cam = np.nan
+        recoil_angle_ito = np.nan
+        recoil_angle_3d_2 = np.nan
 
     # dE/dx needed
-    recoil_length_3d = extract_length_simple(distances_3d, intensities_3d)
-    recoil_length_cam = extract_length_simple(distances_cam, intensities_cam)
-    recoil_length_ito = extract_length_simple(distances_ito, intensities_ito)
+    try:
+        recoil_length_3d = extract_length_simple(distances_3d, intensities_3d)
+        recoil_length_cam = extract_length_simple(distances_cam, intensities_cam)
+        recoil_length_ito = extract_length_simple(distances_ito, intensities_ito)
+    except:
+        recoil_length_3d = np.nan
+        recoil_length_cam = np.nan
+        recoil_length_ito = np.nan
 
-    mean_energy_deposition_cam = np.mean(intensities_cam)
-    std_energy_deposition_cam = np.std(intensities_cam)
-    skew_energy_deposition_cam = sp.stats.skew(intensities_cam)
-    kurt_energy_deposition_cam = sp.stats.kurtosis(intensities_cam)
-    max_energy_deposition_cam = np.max(intensities_cam)
+    try:
+        mean_energy_deposition_cam = np.mean(intensities_cam)
+        std_energy_deposition_cam = np.std(intensities_cam)
+        skew_energy_deposition_cam = sp.stats.skew(intensities_cam)
+        kurt_energy_deposition_cam = sp.stats.kurtosis(intensities_cam)
+        max_energy_deposition_cam = np.max(intensities_cam)
 
-    mean_energy_deposition_ito = np.mean(intensities_ito)
-    std_energy_deposition_ito = np.std(intensities_ito)
-    skew_energy_deposition_ito = sp.stats.skew(intensities_ito)
-    kurt_energy_deposition_ito = sp.stats.kurtosis(intensities_ito)
-    max_energy_deposition_ito = np.max(intensities_ito)
+        mean_energy_deposition_ito = np.mean(intensities_ito)
+        std_energy_deposition_ito = np.std(intensities_ito)
+        skew_energy_deposition_ito = sp.stats.skew(intensities_ito)
+        kurt_energy_deposition_ito = sp.stats.kurtosis(intensities_ito)
+        max_energy_deposition_ito = np.max(intensities_ito)
 
-    mean_energy_deposition_3d = np.mean(intensities_3d)
-    std_energy_deposition_3d = np.std(intensities_3d)
-    skew_energy_deposition_3d = sp.stats.skew(intensities_3d)
-    kurt_energy_deposition_3d = sp.stats.kurtosis(intensities_3d)
-    max_energy_deposition_3d = np.max(intensities_3d)
+        mean_energy_deposition_3d = np.mean(intensities_3d)
+        std_energy_deposition_3d = np.std(intensities_3d)
+        skew_energy_deposition_3d = sp.stats.skew(intensities_3d)
+        kurt_energy_deposition_3d = sp.stats.kurtosis(intensities_3d)
+        max_energy_deposition_3d = np.max(intensities_3d)
 
-    bragg_peak_location_3d = np.argmax(intensities_3d)/len(intensities_3d)
+        bragg_peak_location_3d = np.argmax(intensities_3d)/len(intensities_3d)
+    except:
+        mean_energy_deposition_cam = np.nan
+        std_energy_deposition_cam = np.nan
+        skew_energy_deposition_cam = np.nan
+        kurt_energy_deposition_cam = np.nan
+        max_energy_deposition_cam = np.nan
 
+        mean_energy_deposition_ito = np.nan
+        std_energy_deposition_ito = np.nan
+        skew_energy_deposition_ito = np.nan
+        kurt_energy_deposition_ito = np.nan
+        max_energy_deposition_ito = np.nan
+
+        mean_energy_deposition_3d = np.nan
+        std_energy_deposition_3d = np.nan
+        skew_energy_deposition_3d = np.nan
+        kurt_energy_deposition_3d = np.nan
+        max_energy_deposition_3d = np.nan
+
+        bragg_peak_location_3d = np.nan
+        
     # Append features to dataframe
     features_dataframe = features_dataframe._append(
         {
