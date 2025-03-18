@@ -111,15 +111,21 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     # preprocessing and extracting necessary objects
     cam_image, ito_image = preprocess_3d(cam_raw, ito_raw, pad_style='match_x_at_zero')
     R = extract_R(cam_image, ito_image, downsample=True, downsample_factor=2).astype(np.float32)
+    
     axis_3d, centroid_3d = extract_axis_3d(R)
-
     cam_axis, cam_centroid = extract_axis(cam_image)
     ito_axis, ito_centroid  = extract_axis(ito_image)
 
-    distances_3d, intensities_3d = extract_intensity_profile_3d(R, principal_axis=axis_3d, centroid=centroid_3d)
-    distances_cam, intensities_cam = extract_intensity_profile(cam_image, principal_axis=cam_axis, centroid=cam_centroid)
-    distances_ito, intensities_ito = extract_intensity_profile(ito_image, principal_axis=ito_axis, centroid=ito_centroid)
-    
+    try:
+        distances_3d, intensities_3d = extract_intensity_profile_3d(R, principal_axis=axis_3d, centroid=centroid_3d)
+        distances_cam, intensities_cam = extract_intensity_profile(cam_image, principal_axis=cam_axis, centroid=cam_centroid)
+        distances_ito, intensities_ito = extract_intensity_profile(ito_image, principal_axis=ito_axis, centroid=ito_centroid)
+    except:
+        distances_3d, intensities_3d = None, None
+        distances_cam, intensities_cam = None, None
+        distances_ito, intensities_ito = None, None
+
+
     distances_3d = distances_3d[np.nonzero(intensities_3d)] # remove zeros as they affect stats
     intensities_3d = intensities_3d[np.nonzero(intensities_3d)]
     distances_cam = distances_cam[np.nonzero(intensities_cam)]
