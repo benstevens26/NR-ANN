@@ -575,7 +575,10 @@ def extract_axis_3d(R):
     coords = np.vstack((x_coords, y_coords, z_coords)).T
 
     # Compute intensity-weighted centroid
-    centroid = np.average(coords, axis=0, weights=intensities)
+    try:
+        centroid = np.average(coords, axis=0, weights=intensities)
+    except:
+        centroid = np.average(coords, axis=0, weights=np.abs(intensities))
 
     # Center coordinates by subtracting centroid
     coords_centered = coords - centroid
