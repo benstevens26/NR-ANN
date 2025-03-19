@@ -26,8 +26,8 @@ else:
 print(f"Running job {job_number}")
 
 # feature extraction parameters CHANGE CHANGE CHANGE DONT FORGET CHANGE !!!
-name = "features3_CF4_"+str(job_number)
-matched_files = "/vols/lz/bstevens/NR-ANN/ANN-code/matched_file_paths_CF4.csv"
+name = "features3_Ar_CF4_"+str(job_number)
+matched_files = "/vols/lz/bstevens/NR-ANN/ANN-code/matched_file_paths_Ar_CF4.csv"
 dark_dir = "/vols/lz/MIGDAL/sim_ims/darks"
 num_jobs = 200
 
