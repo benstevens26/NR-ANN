@@ -20,16 +20,19 @@ which = "C"
 # -=+ plotting +=-
 save = False
 
-ROC_curve = True
-confusion_matrix = True
+ROC_curve = False
+confusion_matrix = False
 prediction_with_energy = False
 gradcam = False
-blank_analyis = True
+blank_analyis = False
 noise_analysis = False
+example_recoils = True
 
 # -=+ dataset +=-
 biased = False
 exclude_low_energies = False
+save_sets = [False, False, False] # train, val, test
+
 
 # -=+ details +=-
 make_predictions = False
@@ -113,15 +116,15 @@ elif which == "both":
 
 
 # get test dataset
-def get_file_list(seed=77, test_only=False, which=which, use_unscaled=use_unscaled):
+def get_file_list(seed=77, test_only=False, which=which, use_unscaled=use_unscaled,base_dirs = base_dir_list):
     # use CoNNCR dataset and match LENRI filepaths as required
-    base_dirs = [
-        (
-            "/vols/lz/twatson/ANN/final_ims"
-            if use_unscaled
-            else "/vols/lz/twatson/ANN/preprocessed_images"
-        )
-    ]
+    # base_dirs = [
+    #     (
+    #         "/vols/lz/twatson/ANN/final_ims"
+    #         if use_unscaled
+    #         else "/vols/lz/twatson/ANN/preprocessed_images"
+    #     )
+    # ]
 
     # Get all the .npy files from base_dirs
     file_list = []
@@ -141,18 +144,44 @@ def get_file_list(seed=77, test_only=False, which=which, use_unscaled=use_unscal
         raise NotImplementedError
 
 
-file_list = get_file_list(test_only=True)
+file_list = get_file_list(test_only=False)
 
+batch_size = 16
+dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
+train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
+val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
+test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
-save_test_paths = False
-if save_test_paths:
-    with open("test_names.csv", mode="w", newline="") as file:
-        writer = csv.writer(file)
-        for file_path in file_list:
-            # Get batch file paths
-            file_name = os.path.basename(file_path)
-            # Write each file's path with its respective prediction
-            writer.writerow([file_name]) 
+train_list = file_list[:train_size]
+val_list = file_list[train_size:train_size + val_size]
+test_list = file_list[-test_size:]
+
+if any(save_sets):
+    if save_sets[0]: # train
+        with open("/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/train_names.csv", mode="w", newline="") as file:
+            writer = csv.writer(file)
+            for file_path in train_list:
+                # Get batch file paths
+                file_name = os.path.basename(file_path)
+                # Write each file's path with its respective prediction
+                writer.writerow([file_name]) 
+    if save_sets[1]: # val
+        with open("/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/val_names.csv", mode="w", newline="") as file:
+            writer = csv.writer(file)
+            for file_path in val_list:
+                # Get batch file paths
+                file_name = os.path.basename(file_path)
+                # Write each file's path with its respective prediction
+                writer.writerow([file_name]) 
+    if save_sets[2]: # test
+        with open("/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/test_names.csv", mode="w", newline="") as file:
+            writer = csv.writer(file)
+            for file_path in test_list:
+                # Get batch file paths
+                file_name = os.path.basename(file_path)
+                # Write each file's path with its respective prediction
+                writer.writerow([file_name]) 
+
 
 
 
@@ -334,3 +363,36 @@ if noise_analysis:
     fig.show()
 
         # save_and_display_gradcam(img_array[0], heatmap)
+
+
+
+if example_recoils:
+    event_paths = ["/vols/lz/tmarley/GEM_ITO/run/im2/C/61.373keV_0.000_0.000_C_0.768cm_3062_im.npy",
+                   "/vols/lz/tmarley/GEM_ITO/run/im2/C/226.142keV_0.000_0.000_C_2.085cm_1510_im.npy",
+                   "/vols/lz/tmarley/GEM_ITO/run/im2/C/428.461keV_0.000_0.000_C_2.179cm_8041_im.npy",
+                   "/vols/lz/tmarley/GEM_ITO/run/im2/F/60.844keV_0.000_0.000_F_1.251cm_4732_im.npy",
+                   "/vols/lz/tmarley/GEM_ITO/run/im2/F/226.624keV_0.000_0.000_F_1.965cm_5710_im.npy",
+                   "/vols/lz/tmarley/GEM_ITO/run/im2/F/428.668keV_0.000_0.000_F_0.557cm_8712_im.npy"]
+    fig, axs = plt.subplots(3,2, gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [1, 1, 1]})
+    for e, i in enumerate(axs):
+        i[0].imshow(np.load(event_paths[e]))
+        i[1].imshow(np.load(event_paths[e + 3]))
+        
+        i[0].set_frame_on(True)
+        i[0].get_xaxis().set_visible(False)
+        i[0].get_yaxis().set_visible(False)
+        i[1].set_frame_on(True)
+        i[1].get_xaxis().set_visible(False)
+        i[1].get_yaxis().set_visible(False)
+
+    axs[0][0].set_title("Carbon",fontsize = 15)    
+    axs[0][1].set_title("Fluorine",fontsize = 15)    
+
+    # fig.text(0.04, 0.75, r"$\mathrm{E} \sim 50keV$", va='center', ha='center', fontsize=10)
+    # fig.text(0.04, 0.5, r"$\mathrm{E} \sim 200keV$", va='center', ha='center', fontsize=10)
+    # fig.text(0.04, 0.25, r"$\mathrm{E} \sim 450keV$", va='center', ha='center', fontsize=10)
+
+    fig.tight_layout()
+    if save:
+        fig.savefig("example_recoils",dpi=300)
+    fig.show()

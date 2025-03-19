@@ -251,7 +251,7 @@ elif not use_working_version:
 # model.layers[0].input_dtype = tf.float32
 
 
-freeze = False # Freeze convolutional layers for initial training
+freeze = True # Freeze convolutional layers for initial training
 if freeze:
     for layer in model.layers[:-num_new_layers]:
         layer.trainable = False
@@ -260,7 +260,7 @@ if freeze:
     )
 else: # low learning rate
     opt = tf.keras.optimizers.Adam(
-        learning_rate=1e-6
+        learning_rate=1e-5
     )  # Default value from the paper I'm "leaning on". Good to have very low learning rate for transfer learning
 loss = tf.keras.losses.SparseCategoricalCrossentropy()
 

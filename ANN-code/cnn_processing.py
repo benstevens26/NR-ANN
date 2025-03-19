@@ -5,7 +5,7 @@ contains methods for changing the event.image to be correct for use in the CNN m
 
 """
 
-import os
+import os, re
 import random
 
 import numpy as np
@@ -683,14 +683,48 @@ def yield_preprocessed_data(base_dirs):
         yield image, label
 
 
-def get_file_list(base_dirs):
+def get_file_list(base_dirs, seed=77, min_energy=10, return_low_energies = False):
+    uncropped_error = np.loadtxt(
+        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
+        delimiter=",",
+        dtype=str,
+    )
+    min_dim_error = np.loadtxt(
+        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/min_dim_error.csv",
+        delimiter=",",
+        dtype=str,
+    )
+    # Get all the .npy files from base_dirs
+    errors = np.concatenate((uncropped_error, min_dim_error))
+
+    # Get all the .npy files from base_dirs
     file_list = []
     for base_dir in base_dirs:
         for root, dirs, files in os.walk(base_dir):
-            files = [f for f in files if f.endswith(".npy")]
+            files = [
+                f
+                for f in files
+                if (f.endswith(".npy") and os.path.join(root, f) not in errors and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) > min_energy)
+            ]
             file_list.extend([os.path.join(root, file) for file in files])
+
     file_list.sort()
-    return file_list
+    np.random.seed(seed)
+    np.random.shuffle(file_list)
+    
+    if return_low_energies:
+        low_file_list = []
+        for base_dir in base_dirs:
+            for root, dirs, files in os.walk(base_dir):
+                files = [
+                    f
+                    for f in files
+                    if (f.endswith(".npy") and os.path.join(root, f) not in errors and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) <= min_energy)
+                ]
+                low_file_list.extend([os.path.join(root, file) for file in files])
+        return file_list, low_file_list
+    else:
+        return file_list
 
 
 def load_data_yield_bb(base_dirs, channels=3):
