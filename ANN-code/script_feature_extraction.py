@@ -58,7 +58,8 @@ print("---------------------------------")
 # Define columns for the features dataframe
 features = [
     # From filename
-    "file_name",
+    "cam_path",
+    "ito_path",
     "drift_length",
 
     # Just from pixels/voxels
@@ -97,7 +98,6 @@ features = [
     "kurt_energy_deposition_3d",
     "max_energy_deposition_3d",
     "bragg_peak_location_3d",
-    "centroid_location_3d"
 ]
 
 
@@ -219,7 +219,8 @@ for cam_path, ito_path in tqdm(file_paths, desc="Feature Extraction"): # add noi
     # Append features to dataframe
     features_dataframe = features_dataframe._append(
         {
-            "file_name": filename,
+            "cam_path": cam_path,
+            "ito_path": ito_path,
             "drift_length": drift_length,
             "sum_intensity_cam": sum_intensity_cam,
             "sum_intensity_ito": sum_intensity_ito,
