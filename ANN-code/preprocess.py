@@ -35,7 +35,7 @@ if __name__ == "__main__":
     )
 else: # hopefully this makes it so that when i import things it won't kill the kernel
     example_dark_tensor = tf.convert_to_tensor(
-        example_dark_list_unbinned[0], dtype=tf.float32
+        example_dark_list_unbinned[:10], dtype=tf.float32
     )    
 
 def preprocess_file_path(

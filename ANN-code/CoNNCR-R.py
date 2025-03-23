@@ -34,6 +34,7 @@ use_working_version = False
 use_preprocessed = True
 use_unscaled = True
 finetune = True
+exclude_low_e = True
 
 print(
     """
@@ -195,7 +196,7 @@ print(
       """
 )
 
-dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
+dataset_size = 90210 if exclude_low_e else 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
 train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
 val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
 test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used

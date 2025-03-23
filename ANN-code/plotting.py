@@ -8,8 +8,9 @@ import csv
 from tqdm import tqdm
 import re
 from preprocess import preprocess_file_path_unscaled
+from sklearn.metrics import roc_curve, auc, confusion_matrix
 
-
+backdoor = True
 
 # -=+ model +=-
 # which = "L"
@@ -20,13 +21,14 @@ which = "C"
 # -=+ plotting +=-
 save = False
 
-ROC_curve = False
-confusion_matrix = False
+roc = False
+conf_mat = False
 prediction_with_energy = False
 gradcam = False
 blank_analyis = False
-noise_analysis = False
-example_recoils = True
+noise_analysis = True
+example_recoils = False
+preprocess_figure = False
 
 # -=+ dataset +=-
 biased = False
@@ -37,12 +39,17 @@ save_sets = [False, False, False] # train, val, test
 # -=+ details +=-
 make_predictions = False
 CoNNCR_version = 5
-predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
+if which=="C":
+    predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
+elif which == "L":
+    predictions_file_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv"
 if CoNNCR_version <= 3:
     use_unscaled = False
 else:
     use_unscaled = True
 
+if backdoor:
+    predictions_file_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv"
 
 
 # Load model(s) of choice
@@ -71,13 +78,13 @@ elif which == "C":
         )
       # load CoNNCR
     model = tf.keras.models.load_model(
-            f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v5/initial_training/CoNNCR-R_partially_tuned.keras",
+            f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R.keras",
             custom_objects={"softmax_v2": tf.keras.activations.softmax},
         )
 
     base_dir_list = [
         (
-            "/vols/lz/twatson/ANN/final_ims"
+            "/vols/lz/twatson/ANN/old_final_ims"
             if use_unscaled
             else "/vols/lz/twatson/ANN/preprocessed_images"
         )
@@ -209,20 +216,33 @@ if make_predictions:
 
 data = []  # List to store extracted data
 with open(predictions_file_path, mode="r") as file:
-    reader = csv.reader(file)
+    reader = csv.reader(file, delimiter="\t")
     next(reader)  # Skip header
 
-    for row in reader:
-        file_path, prediction_str = row  # Extract columns
-        
-        # Convert prediction string "[0.3, 0.7]" into a list [0.3, 0.7]
-        prediction = eval(prediction_str)  # Safely convert string to list
+    if backdoor:
+        for row in reader:
+            file_path, prediction_C, prediction_F = row  # Extract columns
+            
+            # Convert prediction string "[0.3, 0.7]" into a list [0.3, 0.7]
+              # Safely convert string to list
 
-        # Determine ground truth class from filename
-        true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
-        energy = float(re.search(r'_ims/([\d.]+)keV', file_path).group(1))
-        # Store information in a structured format
-        data.append([file_path, true_class, energy, prediction[1]])
+            # Determine ground truth class from filename
+            true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
+            energy = float(re.search(r'/([\d.]+)keV', file_path).group(1))
+            # Store information in a structured format
+            data.append([file_path, true_class, energy, float(prediction_F)])
+    else:
+        for row in reader:
+            file_path, prediction_str = row  # Extract columns
+            
+            # Convert prediction string "[0.3, 0.7]" into a list [0.3, 0.7]
+            prediction = eval(prediction_str)  # Safely convert string to list
+
+            # Determine ground truth class from filename
+            true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
+            energy = float(re.search(r'/([\d.]+)keV', file_path).group(1))
+            # Store information in a structured format
+            data.append([file_path, true_class, energy, prediction[1]])
 
 
 
@@ -265,27 +285,176 @@ def undo_preprocess(img):
     return img.astype(np.uint8)
 
 
+
+if roc:
+    y_true = [i[1] for i in data]
+    y_scores = [i[3] for i in data]
+    fpr, tpr, _ = roc_curve(y_true, y_scores)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure(figsize=(8,6))
+    plt.plot(fpr, tpr, color="blue", lw=2, label = f"ROC curve (AUC = {roc_auc:.2f})")
+    plt.plot([0,1],[0,1],color="gray",linestyle="--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve")
+    plt.legend(loc="lower right")
+    plt.grid()
+    if save:
+        plt.savefig("ROC.png",dpi=300)
+    plt.show()
+    
+
+if conf_mat:
+    import seaborn as sns
+    y_true = [i[1] for i in data]
+    y_pred = [round(i[3]) for i in data]
+    cm = confusion_matrix(y_true,y_pred)
+    
+    plt.figure(figsize=(6,5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",xticklabels=["C", "F"],yticklabels=["C", "F"])
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.title("Confusion Matrix")
+    if save:
+        plt.savefig("confusion_matrix.png",dpi=300)
+    plt.show()
+
+if preprocess_figure:
+    raw = np.load("/vols/lz/tmarley/GEM_ITO/run/im2/F/300.867keV_0.000_0.000_F_1.446cm_3539_im.npy")
+    noisy = preprocess_file_path_unscaled(raw,steps=[1])
+    smooth = preprocess_file_path_unscaled(raw,steps=[1,2])
+    thresholded = preprocess_file_path_unscaled(raw,steps=[1,2,3])
+    stacked = preprocess_file_path_unscaled(raw,steps=[1,2,4]).astype(np.uint8)
+    resized = preprocess_file_path_unscaled(raw,steps=[1,2,4,5]).numpy().astype(np.uint8)
+    preprocessed = preprocess_file_path_unscaled(raw,steps=[1,2,4,5,6]).numpy().astype(np.uint8)
+    
+    fig = plt.matshow(raw)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("raw.png",dpi=300)
+    fig = plt.matshow(noisy)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("noisy.png",dpi=300)
+    fig = plt.matshow(smooth)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("smooth.png",dpi=300)
+    fig = plt.matshow(thresholded)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("thresholded.png",dpi=300)
+    fig = plt.matshow(stacked)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("stacked.png",dpi=300)
+    fig = plt.matshow(resized)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("resized.png",dpi=300)
+    fig = plt.matshow(preprocessed)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    if save:
+        plt.savefig("preprocessed.png",dpi=300)
+    
+    
+
 if prediction_with_energy:
     labels = np.array([i[1] for i in data])
     energies = np.array([i[2] for i in data])
     predictions = np.array([i[3] for i in data])
     
-    colours = np.array(["green" if labels[i] == round(predictions[i]) else "brown" for i in range(len(labels))])
+    if backdoor:
+        # histogram approach
+        data_arr = np.array(data, dtype=object)
 
-    mask_o = labels == 0  # Array of True/False values
-    mask_x = labels == 1 
+        # Extract energies, true labels, and predictions.
+        energies = data_arr[:, 2].astype(float)
+        true_labels = data_arr[:, 1].astype(int)
+        predictions = data_arr[:, 3].astype(float)
 
-    # Plot all "o" markers in one go
-    plt.scatter(energies[mask_o], predictions[mask_o], c=colours[mask_o], marker=".",label="C")
+        # Determine the predicted class (using 0.5 as the decision threshold).
+        threshold = 0.5
+        predicted_labels = (predictions >= threshold).astype(int)
 
-    # Plot all "x" markers in one go
-    plt.scatter(energies[mask_x], predictions[mask_x], c=colours[mask_x], marker="x",label="F")
+        # Calculate a boolean array for whether each prediction is correct.
+        correct = (predicted_labels == true_labels)
 
-    plt.grid()
-    plt.legend()
-    
-    
-    plt.show()
+        # Choose the number of bins for energy. Here we use 10 bins.
+        num_bins = 10
+        bins = np.linspace(energies.min(), energies.max(), num_bins + 1)
+
+        # Digitize the energies into bins.
+        bin_indices = np.digitize(energies, bins)
+
+        # Calculate the bin centers (for plotting on the x-axis).
+        bin_centers = 0.5 * (bins[:-1] + bins[1:])
+
+        # Prepare lists for binned accuracy, uncertainties, and counts.
+        acc_list = []
+        err_list = []
+        counts = []
+
+        # Loop over each bin to calculate the accuracy and the uncertainty.
+        for i in range(1, len(bins)):
+            idx = np.where(bin_indices == i)[0]  # indices for events in the current bin
+            n = len(idx)
+            if n == 0:
+                # If there are no events in this bin, record NaN values.
+                acc_list.append(np.nan)
+                err_list.append(np.nan)
+                counts.append(0)
+            else:
+                n_correct = np.sum(correct[idx])
+                accuracy = n_correct / n
+                acc_list.append(accuracy)
+                counts.append(n)
+                # Compute the binomial uncertainty.
+                err = np.sqrt(accuracy * (1 - accuracy) / n)
+                err_list.append(err)
+
+        # Plot the binned accuracy versus energy with error bars.
+        plt.figure(figsize=(8, 6))
+        plt.bar(bin_centers, acc_list, width=(bins[1]-bins[0])*0.9, align='center', label='Binned Accuracy')
+        plt.errorbar(bin_centers, acc_list, yerr=err_list, fmt='none', ecolor='black', capsize=5, label='Uncertainty')
+
+        plt.xlabel('Energy (keV)')
+        plt.ylabel('Accuracy')
+        plt.title('Model Accuracy vs. Energy (Histogram)')
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend()
+        plt.xlim(0,710)
+        plt.ylim(0.5,1.05)
+        if save:
+            plt.savefig("energy_accuracy_hist.png",dpi=300)
+        plt.show()
+        
+        
+    else:
+        colours = np.array(["green" if labels[i] == round(predictions[i]) else "brown" for i in range(len(labels))])
+
+        mask_C = labels == 0  # Array of True/False values
+        mask_F = labels == 1 
+
+        # Plot all "o" markers in one go
+        plt.scatter(energies[mask_C], predictions[mask_C], c=colours[mask_C], marker=".",label="C")
+
+        # Plot all "x" markers in one go
+        plt.scatter(energies[mask_F], predictions[mask_F], c=colours[mask_F], marker="+",label="F")
+
+        plt.grid()
+        plt.legend()
+        
+        
+        plt.show()
 
 
     # plt.scatter(energies,predictions,marker=markers,c=colours)
@@ -304,15 +473,37 @@ print(f"Accuracy: {accuracy:.2%}")
 
 if blank_analyis:
     
-    blanks = [np.zeros((np.random.randint(40,60), np.random.randint(40,60))) for i in range(10)]
-    preprocessed = [preprocess_file_path_unscaled(blank) for blank in blanks]
+    blanks = [np.zeros((np.random.randint(100,130), np.random.randint(100,130))) for i in range(25)]
+    preprocessed = [preprocess_file_path_unscaled(blank,steps=[1,2,4,5,6]) for blank in blanks]
     predictions = []
     for file in preprocessed:
-        plt.imshow(file.numpy().astype(np.uint8))
-        plt.show()
+        # plt.imshow(file.numpy().astype(np.uint8))
+        # plt.show()
         preds = model.predict(np.expand_dims(file,axis=0))
-        print("Predicted:", preds[0])
-        predictions.append(preds[0])
+        # print("Predicted:", preds[0])
+        predictions.append(preds[0][1])
+    fig, axs = plt.subplots(1,2,figsize=(10,6))
+    no_C = True
+    no_F = True
+    i=0
+    while no_C or no_F:
+        if round(predictions[i]) == 0:
+            axs[0].matshow(undo_preprocess(preprocessed[i].numpy()).astype(np.uint8))
+            axs[0].set_title(f"Prediction: {predictions[i]}")
+            axs[0].get_xaxis().set_visible(False)
+            axs[0].get_yaxis().set_visible(False)
+            no_C = False
+        elif round(predictions[i]) == 1:
+            axs[1].matshow(undo_preprocess(preprocessed[i].numpy()).astype(np.uint8))
+            axs[1].set_title(f"Prediction: {predictions[i]}")
+            axs[1].get_xaxis().set_visible(False)
+            axs[1].get_yaxis().set_visible(False)
+            no_F = False
+        i+=1
+        
+    if save:
+        fig.savefig("blank_predictions",dpi=300)
+    fig.show()            
 
 
 if gradcam:
@@ -342,8 +533,15 @@ if gradcam:
     save_and_display_gradcam(img_array[0], heatmap)
 
 if noise_analysis:
+    os.environ["KERAS_BACKEND"] = "tensorflow"
+    import keras
+    from gradcam import get_img_array, make_gradcam_heatmap, save_and_display_gradcam
+    
+    img_size=(224, 224)
+    last_conv_layer_name = "block5_conv3"
+    
     event = np.load('/vols/lz/tmarley/GEM_ITO/run/im2/F/197.711keV_0.000_0.000_F_2.207cm_5465_im.npy')
-    copies = [preprocess_file_path_unscaled(event) for i in range(10)]
+    copies = [preprocess_file_path_unscaled(event,steps=[1,2,4,5,6]) for i in range(10)]
     fig, axs = plt.subplots(10,2, figsize=(3, 15))
     for i in range(10):
         img_array = np.expand_dims(copies[i],axis=0)
@@ -363,7 +561,28 @@ if noise_analysis:
     fig.show()
 
         # save_and_display_gradcam(img_array[0], heatmap)
-
+if False: # version for 2x2 plot
+    #     event = np.load('/vols/lz/tmarley/GEM_ITO/run/im2/F/197.711keV_0.000_0.000_F_2.207cm_5465_im.npy')
+    # copies = [preprocess_file_path_unscaled(event,steps=[1,2,4,5,6]) for i in range(2)]
+    # fig, axs = plt.subplots(2,2, figsize=(6, 6))
+    # for i in range(2):
+    #     img_array = np.expand_dims(copies[i],axis=0)
+    #     pred = model.predict(img_array)[0][1]
+    #     model.layers[-1].activation = None
+        
+    #     heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
+    #     axs[i][0].imshow(img_array[0, :, :, 0].astype(np.uint8), cmap="gray")
+    #     axs[i][0].set_ylabel(f"{pred:.2f}")
+    #     axs[i][1].matshow(heatmap)
+    # for axis in axs:
+    #     for axis2 in axis:
+    #         # axis2.set_axis_off()
+    #         axis2.set_frame_on(True)
+    #         axis2.get_xaxis().set_visible(False)
+    #         # axis2.get_yaxis().set_visible(False)
+    # fig.savefig("noise_analysis.png",dpi=300)
+    # fig.show()
+    pass
 
 
 if example_recoils:
