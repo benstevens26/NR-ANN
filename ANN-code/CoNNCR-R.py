@@ -101,7 +101,7 @@ opt = tf.keras.optimizers.Adam(
     learning_rate=1e-3
 )
 
-loss = tf.keras.losses.BinaryCrossentropy(label_smoothing = 0.1) if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
+loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
 
 # "binary_crossentropy" if num_categories == 2 else
 model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])
@@ -166,7 +166,7 @@ for layer in model.layers[:-num_new_layers]:
 opt = tf.keras.optimizers.Adam(
     learning_rate=1e-5
 )
-loss = tf.keras.losses.BinaryCrossentropy(label_smoothing = 0.1) if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
+loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
 
 # "binary_crossentropy" if num_categories == 2 else
 model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])

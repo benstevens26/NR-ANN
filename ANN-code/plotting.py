@@ -24,13 +24,13 @@ save = False
 roc = False
 conf_mat = False
 prediction_with_energy = False
-gradcam = False
-blank_analyis = False
-noise_analysis = False
+gradcam = True
+blank_analyis = True
+noise_analysis = True
 example_recoils = False
 preprocess_figure = False
 acc_loss_epochs = True
-occlusion_analysis = False
+occlusion_analysis = True
 
 # -=+ dataset +=-
 biased = False
@@ -39,11 +39,11 @@ save_sets = [False, False, False] # train, val, test
 
 
 # -=+ details +=-
-make_predictions = False
-CoNNCR_version = 6
+make_predictions = True
+CoNNCR_version = 7
 if which=="C":
-    # predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
-    predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{5}/CoNNCR-Rv{5}_predictions.csv"
+    predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
+    # predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{5}/CoNNCR-Rv{5}_predictions.csv"
 
 elif which == "L":
     predictions_file_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv"
@@ -127,45 +127,26 @@ elif which == "both":
 
 
 # get test dataset
-def get_file_list(seed=77, test_only=False, which=which, use_unscaled=use_unscaled,base_dirs = base_dir_list):
-    # use CoNNCR dataset and match LENRI filepaths as required
-    # base_dirs = [
-    #     (
-    #         "/vols/lz/twatson/ANN/final_ims"
-    #         if use_unscaled
-    #         else "/vols/lz/twatson/ANN/preprocessed_images"
-    #     )
-    # ]
+from cnn_processing import get_file_list
 
-    # Get all the .npy files from base_dirs
-    file_list = []
-    for base_dir in base_dirs:
-        for root, dirs, files in os.walk(base_dir):
-            files = [f for f in files if (f.endswith(".npy"))]
-            file_list.extend([os.path.join(root, file) for file in files])
+base_dirs = ["/vols/lz/twatson/ANN/final_ims"]
 
-    file_list.sort()
-    np.random.seed(seed)
-    np.random.shuffle(file_list)
-    if which == "C":
-        return file_list[-14912:] if test_only else file_list
-    elif which == "L":
-        raise NotImplementedError
-    elif which == "both":
-        raise NotImplementedError
+file_list = get_file_list(base_dirs)
+file_list = sorted(file_list)
+np.random.seed(77) 
+np.random.shuffle(file_list)
 
-
-file_list = get_file_list(test_only=False)
 
 batch_size = 16
-dataset_size = 99366 # 99989 without the  # CHANGE DEPENDING ON DATA USED
+dataset_size = len(file_list) # i might be stupid lmao
 train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
 val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
 test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
 train_list = file_list[:train_size]
 val_list = file_list[train_size:train_size + val_size]
-test_list = file_list[-test_size:]
+test_list = file_list[train_size + val_size : train_size + val_size + test_size]
+print(f"FIRST AND LAST ELEMENTS OF TEST SET: {test_list[0], test_list[-1]}")
 
 if any(save_sets):
     if save_sets[0]: # train
@@ -195,7 +176,6 @@ if any(save_sets):
 
 
 
-
 if make_predictions:
     batch_size = 32  # Adjust as needed based on available memory
     batched_paths = []
@@ -203,9 +183,9 @@ if make_predictions:
         writer = csv.writer(file)
         writer.writerow(["file_path", "prediction"])  # Write header
 
-        for file_index in range(0, len(file_list), batch_size):
+        for file_index in range(0, len(test_list), batch_size):
             # Get batch file paths
-            batched_paths = file_list[file_index:file_index + batch_size]
+            batched_paths = test_list[file_index:file_index + batch_size]
 
             # Load images for the current batch
             batched_images = [np.load(path) for path in batched_paths]  # Shape: (batch_size, 224, 224, 3)
@@ -488,7 +468,7 @@ if blank_analyis:
         # plt.show()
         preds = model.predict(np.expand_dims(file,axis=0))
         # print("Predicted:", preds[0])
-        predictions.append(preds[0][1])
+        predictions.append(preds[0][1] if CoNNCR_version < 7 else preds[0][0])
     fig, axs = plt.subplots(1,2,figsize=(10,6))
     no_C = True
     no_F = True
@@ -552,7 +532,7 @@ if noise_analysis:
     fig, axs = plt.subplots(10,2, figsize=(3, 15))
     for i in range(10):
         img_array = np.expand_dims(copies[i],axis=0)
-        pred = model.predict(img_array)[0][1]
+        pred = model.predict(img_array)[0][1 if CoNNCR_version < 7 else 0] 
         model.layers[-1].activation = None
         
         heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
@@ -751,7 +731,7 @@ if occlusion_analysis:
             img_size=(224, 224)
             last_conv_layer_name = "block5_conv3"
             
-            pred = preds[0][1]
+            pred = preds[0][1 if CoNNCR_version < 7 else 0]
             model.layers[-1].activation = None
             
             heatmap = make_gradcam_heatmap(np.expand_dims(occluded,axis=0), model, last_conv_layer_name)
