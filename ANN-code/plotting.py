@@ -29,8 +29,8 @@ blank_analyis = False
 noise_analysis = False
 example_recoils = False
 preprocess_figure = False
-acc_loss_epochs = False
-occlusion_analysis = True
+acc_loss_epochs = True
+occlusion_analysis = False
 
 # -=+ dataset +=-
 biased = False
