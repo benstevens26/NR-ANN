@@ -10,7 +10,7 @@ import re
 from preprocess import preprocess_file_path_unscaled
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 
-backdoor = True
+backdoor = False
 
 # -=+ model +=-
 # which = "L"
@@ -26,9 +26,11 @@ conf_mat = False
 prediction_with_energy = False
 gradcam = False
 blank_analyis = False
-noise_analysis = True
+noise_analysis = False
 example_recoils = False
 preprocess_figure = False
+acc_loss_epochs = False
+occlusion_analysis = True
 
 # -=+ dataset +=-
 biased = False
@@ -38,9 +40,11 @@ save_sets = [False, False, False] # train, val, test
 
 # -=+ details +=-
 make_predictions = False
-CoNNCR_version = 5
+CoNNCR_version = 6
 if which=="C":
-    predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
+    # predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
+    predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{5}/CoNNCR-Rv{5}_predictions.csv"
+
 elif which == "L":
     predictions_file_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv"
 if CoNNCR_version <= 3:
@@ -77,10 +81,10 @@ elif which == "C":
             custom_objects={"softmax_v2": tf.keras.activations.softmax},
         )
       # load CoNNCR
-    model = tf.keras.models.load_model(
-            f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R.keras",
-            custom_objects={"softmax_v2": tf.keras.activations.softmax},
-        )
+    # model = tf.keras.models.load_model(
+    #         f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R.keras",
+    #         custom_objects={"softmax_v2": tf.keras.activations.softmax},
+    #     )
 
     base_dir_list = [
         (
@@ -216,7 +220,10 @@ if make_predictions:
 
 data = []  # List to store extracted data
 with open(predictions_file_path, mode="r") as file:
-    reader = csv.reader(file, delimiter="\t")
+    if backdoor:
+        reader = csv.reader(file, delimiter="\t")
+    else:
+        reader = csv.reader(file)
     next(reader)  # Skip header
 
     if backdoor:
@@ -615,3 +622,142 @@ if example_recoils:
     if save:
         fig.savefig("example_recoils",dpi=300)
     fig.show()
+
+
+if acc_loss_epochs:
+    import json
+    import glob
+
+    file_paths = [f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/history.json",
+                f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/finetuned_history.json"
+                ]
+
+    # Initialize combined lists
+    combined_data = {
+        "accuracy": [],
+        "loss": [],
+        "val_accuracy": [],
+        "val_loss": []
+    }
+
+    # Loop through each file and append the data
+    for file_path in file_paths:
+        with open(file_path, "r") as f:
+            history_data = json.load(f)
+            for key in combined_data.keys():
+                combined_data[key].extend(history_data.get(key, []))
+            if file_path == file_paths[0]:
+                epoch_marker = len(history_data["accuracy"])
+
+    # Debugging: Print lengths to ensure correctness
+    # for key, values in combined_data.items():
+    #     print(f"{key}: {len(values)} entries")
+
+    # Extract values from dictionary
+    accuracy = combined_data.get("accuracy", [])
+    loss = combined_data.get("loss", [])
+    val_accuracy = combined_data.get("val_accuracy", [])
+    val_loss = combined_data.get("val_loss", [])
+
+    # Create a single figure
+    fig, ax1 = plt.subplots()
+    lines = []
+    # Plot accuracy and validation accuracy
+    if accuracy:
+        lines += ax1.plot(accuracy, label="Accuracy", color="blue")
+    if val_accuracy:
+        lines += ax1.plot(val_accuracy, label="Validation Accuracy", color="blue", linestyle="--")
+
+    # Create secondary y-axis for loss
+    axloss = ax1.twinx()
+    if loss:
+        # axloss.grid()
+        axloss.yaxis.label.set_color("red")
+        lines += axloss.plot(loss, label="Loss", color="red")
+        axloss.tick_params(axis="y", colors="red")
+    if val_loss:
+        lines += axloss.plot(val_loss, label="Validation Loss", color="red", linestyle="--")
+
+    ymin_acc, ymax_acc = ax1.get_ylim()
+    # ymin_loss, ymax_loss = axloss.get_ylim()
+
+    ax1.vlines(epoch_marker, 0, 1, color="black", linestyle=":")
+    ax1.set_ylim(ymin_acc, ymax_acc)
+    
+
+    xticks = list(ax1.get_xticks())  # Get existing x-ticks
+    xticks.append(epoch_marker)  # Add marker
+    ax1.set_xticks(sorted(xticks))  # Set new x-ticks
+
+    # Convert x-ticks to labels, replacing epoch_marker with a custom label
+    xtick_labels = [str(int(tick)) if tick != epoch_marker else f"{epoch_marker}" for tick in sorted(xticks)]
+    ax1.set_xticklabels(xtick_labels)
+
+    # Restore x-limits to Matplotlib’s auto-determined values
+    ax1.set_xlim(0, len(combined_data["accuracy"]))
+    axloss.set_xlim(0, len(combined_data["accuracy"]))
+
+    # Configure labels and title
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc="center right")
+    ax1.set_title("Accuracy and Loss over Epochs")
+    ax1.set_xlabel("Epoch")
+    ax1.set_ylabel("Accuracy", color="blue")
+    ax1.tick_params(axis="y", colors="blue")
+    ax1.grid(True, linestyle="dotted")
+    axloss.grid(False)  # Remove grid from secondary axis
+
+    axloss.set_ylabel("Loss", color="red")
+
+
+    plt.show()
+
+
+if occlusion_analysis:
+    size = 56
+    
+    num = 224//size
+    image = np.load("/vols/lz/twatson/ANN/final_ims/199.882keV_0.000_0.000_C_2.452cm_2699_im.npy")
+    image = np.load("/vols/lz/twatson/ANN/final_ims/56.825keV_0.000_0.000_F_0.604cm_5803_im.npy")
+    image = np.load("/vols/lz/twatson/ANN/final_ims/351.803keV_0.000_0.000_F_1.522cm_5677_im.npy")
+    
+    fig, axs = plt.subplots(num, 2*num, figsize = (10,10))
+    vgg_mean = np.array([-103.939,  -116.779, -123.68])
+
+    for i in range(num):
+        for j in range(num):
+            occluded = image.copy()
+            x_start, y_start = i * size, j * size
+            x_end, y_end = x_start + size, y_start + size
+            
+            
+            
+            occluded[y_start:y_end, x_start:x_end, :] = vgg_mean
+            preds = model.predict(np.expand_dims(occluded,axis=0))
+            predicted_class = np.argmax(preds)  # Get the class with highest probability
+            confidence = np.max(preds)  # Get confidence score
+
+            # Plot occluded image with prediction
+            ax = axs[j, 2*i]
+            ax.imshow(undo_preprocess(occluded))
+            ax.set_title(f"Class: {predicted_class}, Conf: {confidence:.2f}")
+            ax.axis("off")
+            
+            ax = axs[j, 2*i+1]
+            os.environ["KERAS_BACKEND"] = "tensorflow"
+            import keras
+            from gradcam import get_img_array, make_gradcam_heatmap, save_and_display_gradcam
+            
+            img_size=(224, 224)
+            last_conv_layer_name = "block5_conv3"
+            
+            pred = preds[0][1]
+            model.layers[-1].activation = None
+            
+            heatmap = make_gradcam_heatmap(np.expand_dims(occluded,axis=0), model, last_conv_layer_name)
+            ax.matshow(heatmap)
+            ax.axis("off")
+
+
+plt.tight_layout()
+plt.show()
