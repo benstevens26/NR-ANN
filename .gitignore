@@ -181,3 +181,4 @@ ANN-code/roc_curve_data.csv
 *.csv
 ANN-code/old_models/CoNNCR-R/v2/history.json
 ANN-code/old_models
+*.jpg
