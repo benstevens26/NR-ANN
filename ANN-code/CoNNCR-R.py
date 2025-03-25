@@ -14,6 +14,8 @@ import json
 
 finetune = True
 exclude_low_e = True
+CoNNCR_version = 10
+
 
 def load_and_process(file_path):
     # file_path here is a tf.string tensor, so convert to numpy if needed
@@ -31,7 +33,7 @@ def tf_load_and_process(file_path):
 
 
 
-base_dirs = ["/vols/lz/twatson/ANN/final_ims"]
+base_dirs = ["/vols/lz/twatson/ANN/old_final_ims"]
 batch_size = 16
 binning = 1
 
@@ -51,25 +53,25 @@ train_size = (int(0.7 * dataset_size)//batch_size)*batch_size
 val_size = (int(0.15 * dataset_size)//batch_size)*batch_size
 test_size = ((dataset_size - train_size - val_size)//batch_size)*batch_size  # Ensure all data is used
 
-train_file_list = file_list[:train_size]
-val_file_list = file_list[train_size:train_size + val_size]
-test_file_list = file_list[train_size + val_size : train_size + val_size + test_size]
-print(f"FIRST AND LAST ELEMENTS OF TEST SET: {test_file_list[0], test_file_list[-1]}")
+train_list = file_list[:train_size]
+val_list = file_list[train_size:train_size + val_size]
+test_list = file_list[train_size + val_size : train_size + val_size + test_size]
+print(f"FIRST AND LAST ELEMENTS OF TEST SET: {test_list[0], test_list[-1]}")
 
 
 
 # First 70% for training
-train_dataset = tf.data.Dataset.from_tensor_slices(train_file_list)
+train_dataset = tf.data.Dataset.from_tensor_slices(train_list)
 train_dataset = train_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
 train_dataset = train_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
 
 # Next 15% for val
-val_dataset = tf.data.Dataset.from_tensor_slices(val_file_list)
+val_dataset = tf.data.Dataset.from_tensor_slices(val_list)
 val_dataset = val_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
 val_dataset = val_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Next 15%
 
 # Next 15 % for test
-test_dataset = tf.data.Dataset.from_tensor_slices(test_file_list)
+test_dataset = tf.data.Dataset.from_tensor_slices(test_list)
 test_dataset = test_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
 test_dataset = test_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Final 15%
 
@@ -88,7 +90,7 @@ net = tf.keras.layers.Dense(256, activation="leaky_relu")(net)
 net = tf.keras.layers.Dropout(0.4)(net)
 net = tf.keras.layers.Dense(64, activation="leaky_relu")(net)
 net = tf.keras.layers.Dropout(0.4)(net)
-preds = tf.keras.layers.Dense(1, activation="sigmoid")(net) if num_categories == 2 else tf.keras.layers.Dense(num_categories, activation="softmax")(net)
+preds = tf.keras.layers.Dense(2, activation="softmax")(net) if num_categories == 2 else tf.keras.layers.Dense(num_categories, activation="softmax")(net)
 model = tf.keras.Model(base_model.input, preds)
 num_new_layers = 6
 
@@ -101,13 +103,15 @@ opt = tf.keras.optimizers.Adam(
     learning_rate=1e-3
 )
 
-loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
+# loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
+loss = tf.keras.losses.SparseCategoricalCrossentropy()
 
 # "binary_crossentropy" if num_categories == 2 else
 model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])
 
 # Setup TensorBoard callback
-log_dir = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs"
+log_dir = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}"
+
 tb_callback = tf.keras.callbacks.TensorBoard(log_dir)
 
 # Setup checkpoint callback
@@ -147,7 +151,7 @@ history = model.fit(
 
 history_filename = os.path.join(log_dir, "history.json")
 
-model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R_untuned.keras"
+model_save_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-R_untuned.keras"
 try:
     model.save(model_save_path)
 except:
@@ -164,9 +168,10 @@ with open(history_filename, "w") as file:
 for layer in model.layers[:-num_new_layers]:
     layer.trainable = True
 opt = tf.keras.optimizers.Adam(
-    learning_rate=1e-5
+    learning_rate=1e-6
 )
-loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
+# loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
+loss = tf.keras.losses.SparseCategoricalCrossentropy()
 
 # "binary_crossentropy" if num_categories == 2 else
 model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])
@@ -195,7 +200,7 @@ finetuned_history = model.fit(
 
 finetuned_history_filename = os.path.join(log_dir, "finetuned_history.json")
 
-model_save_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/CoNNCR-R.keras"
+model_save_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-R.keras"
 try:
     model.save(model_save_path)
 except:
@@ -203,3 +208,28 @@ except:
 
 with open(finetuned_history_filename, "w") as file:
     json.dump(finetuned_history.history, file)
+
+
+print("Predicting...")
+import csv
+predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
+# batch_size = 32  # Adjust as needed based on available memory
+batched_paths = []
+with open(predictions_file_path, mode="w", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(["file_path", "prediction"])  # Write header
+
+    for file_index in range(0, len(test_list), batch_size):
+        # Get batch file paths
+        batched_paths = test_list[file_index:file_index + batch_size]
+
+        # Load images for the current batch
+        batched_images = [np.load(path) for path in batched_paths]  # Shape: (batch_size, 224, 224, 3)
+        batched_images = np.stack(batched_images, axis=0)  # Convert to numpy array
+
+        # Run batch prediction
+        predictions = model.predict(batched_images, verbose=0)  # Shape: (batch_size, 2)
+
+        # Write each file's path with its respective prediction
+        for path, pred in zip(batched_paths, predictions):
+            writer.writerow([path, list(pred)]) 

@@ -24,13 +24,13 @@ save = False
 roc = False
 conf_mat = False
 prediction_with_energy = False
-gradcam = True
-blank_analyis = True
-noise_analysis = True
+gradcam = False
+blank_analyis = False
+noise_analysis = False
 example_recoils = False
 preprocess_figure = False
 acc_loss_epochs = True
-occlusion_analysis = True
+occlusion_analysis = False
 
 # -=+ dataset +=-
 biased = False
@@ -39,8 +39,8 @@ save_sets = [False, False, False] # train, val, test
 
 
 # -=+ details +=-
-make_predictions = True
-CoNNCR_version = 7
+make_predictions = False
+CoNNCR_version = 9
 if which=="C":
     predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
     # predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{5}/CoNNCR-Rv{5}_predictions.csv"
