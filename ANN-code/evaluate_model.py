@@ -18,15 +18,15 @@ from sklearn.metrics import (
     f1_score,
 )
 from feature_preprocessing import get_dataloaders_cf4, get_dataloaders_ar_cf4, get_dataloaders_cf4_biased
-from models import LENRI_CF4_1, LENRI_Ar_CF4_1, LENRI_CF4_2, LENRI_Ar_CF4_2
+from models import LENRI_CF4_1, LENRI_Ar_CF4_1, LENRI_CF4_2, LENRI_Ar_CF4_2, LENRI_CF4_3, LENRI_Ar_CF4_3
 
 # Toggle binary classification mode
 BINARY = True  # Set to True for binary classification (C vs. F), False for multi-class (C, F, Ar)
 biased = False
 
-model_path = "LENRI_CF4_2_opt.pth"
-features_path = "ANN-code/Data/features_CF4_2_processed.csv"
-save_path = "ANN-code/Data/LENRI-CF4-2"
+model_path = "LENRI_CF4_3_opt.pth"
+features_path = "ANN-code/Data/features_CF4_3_processed.csv"
+save_path = "ANN-code/Data/LENRI-CF4-3"
 
 # Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,7 +42,7 @@ else:
     _, _, test_loader = get_dataloaders_ar_cf4(features_path, batch_size=32)
 
 # Load trained model
-model = LENRI_CF4_2().to(device)
+model = LENRI_CF4_3().to(device)
 checkpoint = torch.load(model_path, map_location=device)
 model.load_state_dict(checkpoint["model_state_dict"])
 print("Loaded Hyperparameters:", checkpoint["hyperparameters"])

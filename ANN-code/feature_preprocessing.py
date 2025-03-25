@@ -36,7 +36,7 @@ def extract_label_ar_cf4(filename):
 class NuclearRecoilDatasetCF4(Dataset):
     def __init__(self, dataframe):
         self.features = dataframe.drop(
-            columns=["file_name", "label"]
+            columns=["cam_path", "ito_path", "label"]
         ).values  # Drop file_name explicitly
         self.labels = dataframe["label"].values
 
@@ -52,7 +52,7 @@ class NuclearRecoilDatasetCF4(Dataset):
 class NuclearRecoilDatasetArCF4(Dataset):
     def __init__(self, dataframe):
         self.features = dataframe.drop(
-            columns=["file_name", "label"]
+            columns=["cam_path", "ito_path", "label"]
         ).values  # Drop file_name explicitly
         self.labels = dataframe["label"].values  # Class indices
 
@@ -67,7 +67,7 @@ class NuclearRecoilDatasetArCF4(Dataset):
 
 def get_dataloaders_cf4(csv_file, batch_size=32, verbose=False):
     df = pd.read_csv(csv_file)
-    df["label"] = df["file_name"].apply(extract_label_cf4)
+    df["label"] = df["cam_path"].apply(extract_label_cf4)
     train, test = train_test_split(
         df, test_size=0.15, stratify=df["label"], random_state=42
     )
@@ -98,7 +98,7 @@ def get_dataloaders_cf4(csv_file, batch_size=32, verbose=False):
 
 def get_dataloaders_ar_cf4(csv_file, batch_size=32, verbose=False):
     df = pd.read_csv(csv_file)
-    df["label"] = df["file_name"].apply(extract_label_ar_cf4)
+    df["label"] = df["cam_path"].apply(extract_label_ar_cf4)
     train, test = train_test_split(
         df, test_size=0.15, stratify=df["label"], random_state=42
     )
@@ -128,7 +128,7 @@ def get_dataloaders_ar_cf4(csv_file, batch_size=32, verbose=False):
 
 def get_dataloaders_cf4_biased(csv_file, batch_size=32, verbose=False):
     df = pd.read_csv(csv_file)
-    df["label"] = df["file_name"].apply(extract_label_cf4)
+    df["label"] = df["cam_path"].apply(extract_label_cf4)
     train, test = train_test_split(
         df, test_size=0.15, stratify=df["label"], random_state=42
     )
@@ -173,7 +173,7 @@ def get_dataloaders_cf4_biased(csv_file, batch_size=32, verbose=False):
 
 def get_dataloaders_ar_cf4_biased(csv_file, batch_size=32, verbose=False):
     df = pd.read_csv(csv_file)
-    df["label"] = df["file_name"].apply(extract_label_ar_cf4)
+    df["label"] = df["cam_path"].apply(extract_label_ar_cf4)
     train, test = train_test_split(
         df, test_size=0.15, stratify=df["label"], random_state=42
     )

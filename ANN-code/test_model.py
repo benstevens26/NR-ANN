@@ -13,15 +13,15 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import precision_score, recall_score, f1_score
 from feature_preprocessing import get_dataloaders_cf4, get_dataloaders_ar_cf4
-from models import LENRI_CF4_1, LENRI_Ar_CF4_1, LENRI_Ar_CF4_1_opt
+from models import LENRI_CF4_1, LENRI_Ar_CF4_1, LENRI_CF4_2, LENRI_Ar_CF4_2, LENRI_CF4_3, LENRI_Ar_CF4_3
 
 # Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
-model_path = "lenri_Ar_CF4_1_opt.pth"
-features_path = "ANN-code/Data/features_Ar_CF4_processed.csv"
-model = LENRI_Ar_CF4_1_opt().to(device)
+model_path = "lenri_model_best.pth"
+features_path = "ANN-code/Data/features_Ar_CF4_3_processed.csv"
+model = LENRI_Ar_CF4_3().to(device)
 binary = False
 
 # Load test set
@@ -33,6 +33,11 @@ else:
 # Load trained model
 checkpoint = torch.load(model_path, map_location=device)
 model.load_state_dict(checkpoint["model_state_dict"])
+
+# Print hyperparameters
+if 'hyperparameters' in checkpoint:
+    hyperparameters = checkpoint['hyperparameters']
+    print("Hyperparameters:", hyperparameters)
 
 # Define loss function
 criterion = nn.CrossEntropyLoss()

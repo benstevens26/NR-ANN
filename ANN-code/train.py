@@ -14,23 +14,33 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from feature_preprocessing import get_dataloaders_cf4
-from feature_preprocessing import get_dataloaders_ar_cf4
-from model import LENRI_CF4
-from model import LENRI_Ar_CF4
+from feature_preprocessing import get_dataloaders_ar_cf4, get_dataloaders_ar_cf4_biased
+from models import LENRI_CF4_1, LENRI_CF4_2, LENRI_CF4_3
+from models import LENRI_Ar_CF4_1, LENRI_Ar_CF4_2, LENRI_Ar_CF4_3
 
 # model to train and features to use
-model = LENRI_CF4(input_size=10)
-features_path = "ANN-code/Data/features_old/all_features_2_scaled.csv"
-binary = True
+features_path = "ANN-code/Data/features_Ar_CF4_3_processed.csv"
+binary = False
 
 # Hyperparameters
 num_epochs = 50
-learning_rate = 0.001
+learning_rate = 1e-3
 batch_size = 32
 patience = 5
+weight_decay = 0.0
+
+
+# Hyperparameters dict for saving
+hyperparameters = {
+    "learning_rate": learning_rate,
+    "batch_size": batch_size,
+    "weight_decay": weight_decay,
+}
 
 # Device configuration
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("mps" if torch.mps.is_available() else "cpu")
+device = torch.device("cpu")
 print(f"Using device: {device}")
 
 # Load datasets
@@ -44,9 +54,9 @@ else:
     )
 
 # Initialize model, loss function, optimizer
-model = LENRI_CF4(input_size=9).to(device)
+model = LENRI_Ar_CF4_3().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
 # Early stopping variables
 best_val_acc = 0.0

@@ -16,10 +16,10 @@ import optuna
 from feature_preprocessing import get_dataloaders_cf4, get_dataloaders_ar_cf4
 
 # Toggle binary classification mode
-BINARY = True  # Set to False for multi-class (C, F, Ar)
-features_path = "ANN-code/Data/features_CF4_2_processed.csv"
+BINARY = False  # Set to False for multi-class (C, F, Ar)
+features_path = "ANN-code/Data/features_Ar_CF4_3_processed.csv"
 num_classes = 2 if BINARY else 3  # Adjust number of output classes
-input_size = 18  # Number of input features
+input_size = 32  # Number of input features
 
 def save_best_model(model, trial):
     """Saves the best model with its hyperparameters."""
@@ -34,7 +34,7 @@ class LENRI(nn.Module):
     def __init__(
         self,
         input_size=input_size,
-        hidden_layers=[32, 16, 8],
+        hidden_layers=[128, 64, 48, 32],
         dropout_rate=0.2,
         num_classes=num_classes,
     ):
@@ -157,7 +157,7 @@ def objective_simple(trial):
     dropout_rate = trial.suggest_float("dropout_rate", 0.05, 0.3)
     weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
 
-    hidden_layers = [64, 48, 32] # choose hidden layers
+    hidden_layers = [128, 64, 48, 32] # choose hidden layers
 
     val_loss = train_model(
         learning_rate, batch_size, dropout_rate,
