@@ -1,3 +1,7 @@
+"""
+Module contains BEAN (Boosted Ensemble for Analysing Nuclear recoils)
+"""
+
 import pandas as pd
 import re
 from xgboost import XGBClassifier
@@ -5,11 +9,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.preprocessing import StandardScaler
 
-# Load the dataset
+# load data
 file_path = "ANN-code/Data/features_CF4_3_processed.csv"
 df = pd.read_csv(file_path)
+binary = True
 
-# Define label extraction function
+# label extraction function
 def extract_label_cf4(filename):
     if re.search(r"00_C_", filename):
         return 0  # Carbon
@@ -19,7 +24,7 @@ def extract_label_cf4(filename):
         return 0
     elif re.search(r"_F_", filename):
         return 1
-    return None  # Handle unexpected cases
+    return None
 
 # Extract labels
 df["label"] = df["cam_path"].apply(extract_label_cf4)
