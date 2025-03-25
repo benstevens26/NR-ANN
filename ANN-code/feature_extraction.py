@@ -3,7 +3,6 @@ Module that contains standalone functions for feature extraction from Event imag
 """
 
 import numpy as np
-from scipy.ndimage import center_of_mass
 from scipy.linalg import svd
 from scipy.interpolate import griddata
 from scipy.interpolate import splprep, splev
