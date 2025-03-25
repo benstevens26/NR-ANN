@@ -187,3 +187,4 @@ roc_curve_data_miniCoNNCR.csv
 ANN-code/matched_file_paths_Ar_CF4.csv
 
 notebooks
+notebooks/3d_event_reconstruction.ipynb

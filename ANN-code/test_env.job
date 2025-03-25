@@ -1,9 +1,0 @@
-executable = test_env.py
-getenv = True
-output = $(PROCESS).log
-error = $(PROCESS).err
-log = $(PROCESS).log
-arguments = $(PROCESS)
-request_memory = 1G
-+MaxRuntime = 10799
-queue
