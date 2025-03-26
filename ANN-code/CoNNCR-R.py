@@ -14,7 +14,7 @@ import json
 
 finetune = True
 exclude_low_e = True
-CoNNCR_version = 10
+CoNNCR_version = 11
 
 
 def load_and_process(file_path):
@@ -39,7 +39,7 @@ binning = 1
 
 
 
-file_list = get_file_list(base_dirs) if exclude_low_e else get_file_list(base_dirs,min_energy=0)
+file_list, low_list = get_file_list(base_dirs,return_low_energies=True) if exclude_low_e else get_file_list(base_dirs,min_energy=0,return_low_energies=True)
 file_list = sorted(file_list) # only shuffle ONCE so that sets are easily reproducable
 np.random.seed(77) 
 np.random.shuffle(file_list)
@@ -75,6 +75,14 @@ test_dataset = tf.data.Dataset.from_tensor_slices(test_list)
 test_dataset = test_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
 test_dataset = test_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Final 15%
 
+
+
+low_size = len(low_list)
+low_test_size = (int(0.15 * low_size)//batch_size)*batch_size
+low_test_list = low_list[:low_test_size] + test_list
+low_test_dataset = tf.data.Dataset.from_tensor_slices(low_test_list)
+low_test_dataset = low_test_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
+low_test_dataset = low_test_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Final 15%
 
 
 
@@ -187,6 +195,11 @@ ckpt_callback = tf.keras.callbacks.ModelCheckpoint(
     monitor="val_loss",
 )
 
+epochs = 100
+
+early_stopping = keras.callbacks.EarlyStopping(
+    monitor="accuracy", patience=15, restore_best_weights=True
+)
 
 finetuned_history = model.fit(
     train_dataset,
@@ -219,9 +232,9 @@ with open(predictions_file_path, mode="w", newline="") as file:
     writer = csv.writer(file)
     writer.writerow(["file_path", "prediction"])  # Write header
 
-    for file_index in range(0, len(test_list), batch_size):
+    for file_index in range(0, len(low_test_list), batch_size):
         # Get batch file paths
-        batched_paths = test_list[file_index:file_index + batch_size]
+        batched_paths = low_test_list[file_index:file_index + batch_size]
 
         # Load images for the current batch
         batched_images = [np.load(path) for path in batched_paths]  # Shape: (batch_size, 224, 224, 3)
@@ -232,4 +245,4 @@ with open(predictions_file_path, mode="w", newline="") as file:
 
         # Write each file's path with its respective prediction
         for path, pred in zip(batched_paths, predictions):
-            writer.writerow([path, list(pred)]) 
+            writer.writerow([path, list(pred)])
