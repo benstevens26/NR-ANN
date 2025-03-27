@@ -24,23 +24,24 @@ save = False
 roc = True
 conf_mat = True
 prediction_with_energy = True
-gradcam = True
-blank_analyis = True
+gradcam = False
+blank_analyis = False
 noise_analysis = True
 example_recoils = False
 preprocess_figure = False
 acc_loss_epochs = True
 occlusion_analysis = True
+accuracy_with_energy = True
 
 # -=+ dataset +=-
-biased = False
-exclude_low_energies = False
+biased = True
+exclude_low_energies = True
 save_sets = [False, False, False] # train, val, test
 
 
 # -=+ details +=-
 make_predictions = False
-CoNNCR_version = 10
+CoNNCR_version = 12
 if which=="C":
     predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-Rv{CoNNCR_version}_predictions.csv"
     # predictions_file_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{5}/CoNNCR-Rv{5}_predictions.csv"
@@ -358,90 +359,22 @@ if prediction_with_energy:
     labels = np.array([i[1] for i in data])
     energies = np.array([i[2] for i in data])
     predictions = np.array([i[3] for i in data])
+    colours = np.array(["green" if labels[i] == round(predictions[i]) else "brown" for i in range(len(labels))])
+
+    mask_C = labels == 0  # Array of True/False values
+    mask_F = labels == 1 
+
+    # Plot all "o" markers in one go
+    plt.scatter(energies[mask_C], predictions[mask_C], c=colours[mask_C], marker=".",label="C")
+
+    # Plot all "x" markers in one go
+    plt.scatter(energies[mask_F], predictions[mask_F], c=colours[mask_F], marker="+",label="F")
+
+    plt.grid()
+    plt.legend()
     
-    if backdoor:
-        # histogram approach
-        data_arr = np.array(data, dtype=object)
-
-        # Extract energies, true labels, and predictions.
-        energies = data_arr[:, 2].astype(float)
-        true_labels = data_arr[:, 1].astype(int)
-        predictions = data_arr[:, 3].astype(float)
-
-        # Determine the predicted class (using 0.5 as the decision threshold).
-        threshold = 0.5
-        predicted_labels = (predictions >= threshold).astype(int)
-
-        # Calculate a boolean array for whether each prediction is correct.
-        correct = (predicted_labels == true_labels)
-
-        # Choose the number of bins for energy. Here we use 10 bins.
-        num_bins = 10
-        bins = np.linspace(energies.min(), energies.max(), num_bins + 1)
-
-        # Digitize the energies into bins.
-        bin_indices = np.digitize(energies, bins)
-
-        # Calculate the bin centers (for plotting on the x-axis).
-        bin_centers = 0.5 * (bins[:-1] + bins[1:])
-
-        # Prepare lists for binned accuracy, uncertainties, and counts.
-        acc_list = []
-        err_list = []
-        counts = []
-
-        # Loop over each bin to calculate the accuracy and the uncertainty.
-        for i in range(1, len(bins)):
-            idx = np.where(bin_indices == i)[0]  # indices for events in the current bin
-            n = len(idx)
-            if n == 0:
-                # If there are no events in this bin, record NaN values.
-                acc_list.append(np.nan)
-                err_list.append(np.nan)
-                counts.append(0)
-            else:
-                n_correct = np.sum(correct[idx])
-                accuracy = n_correct / n
-                acc_list.append(accuracy)
-                counts.append(n)
-                # Compute the binomial uncertainty.
-                err = np.sqrt(accuracy * (1 - accuracy) / n)
-                err_list.append(err)
-
-        # Plot the binned accuracy versus energy with error bars.
-        plt.figure(figsize=(8, 6))
-        plt.bar(bin_centers, acc_list, width=(bins[1]-bins[0])*0.9, align='center', label='Binned Accuracy')
-        plt.errorbar(bin_centers, acc_list, yerr=err_list, fmt='none', ecolor='black', capsize=5, label='Uncertainty')
-
-        plt.xlabel('Energy (keV)')
-        plt.ylabel('Accuracy')
-        plt.title('Model Accuracy vs. Energy (Histogram)')
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend()
-        plt.xlim(0,710)
-        plt.ylim(0.5,1.05)
-        if save:
-            plt.savefig("energy_accuracy_hist.png",dpi=300)
-        plt.show()
-        
-        
-    else:
-        colours = np.array(["green" if labels[i] == round(predictions[i]) else "brown" for i in range(len(labels))])
-
-        mask_C = labels == 0  # Array of True/False values
-        mask_F = labels == 1 
-
-        # Plot all "o" markers in one go
-        plt.scatter(energies[mask_C], predictions[mask_C], c=colours[mask_C], marker=".",label="C")
-
-        # Plot all "x" markers in one go
-        plt.scatter(energies[mask_F], predictions[mask_F], c=colours[mask_F], marker="+",label="F")
-
-        plt.grid()
-        plt.legend()
-        
-        
-        plt.show()
+    
+    plt.show()
 
 
     # plt.scatter(energies,predictions,marker=markers,c=colours)
@@ -528,6 +461,7 @@ if noise_analysis:
     last_conv_layer_name = "block5_conv3"
     
     event = np.load('/vols/lz/tmarley/GEM_ITO/run/im2/F/197.711keV_0.000_0.000_F_2.207cm_5465_im.npy')
+    event = np.load("/vols/lz/tmarley/GEM_ITO/run/im1/C/164.808keV_0.000_0.000_C_0.741cm_7190_im.npy")    
     copies = [preprocess_file_path_unscaled(event,steps=[1,2,4,5,6]) for i in range(10)]
     fig, axs = plt.subplots(10,2, figsize=(3, 15))
     for i in range(10):
@@ -609,7 +543,9 @@ if acc_loss_epochs:
     import glob
 
     file_paths = [f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/history.json",
-                f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/finetuned_history.json"
+                f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/finetuned_history.json",
+                f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/finetuned_history_2.json",
+
                 ]
 
     # Initialize combined lists
@@ -700,6 +636,7 @@ if occlusion_analysis:
     image = np.load("/vols/lz/twatson/ANN/final_ims/199.882keV_0.000_0.000_C_2.452cm_2699_im.npy")
     image = np.load("/vols/lz/twatson/ANN/final_ims/56.825keV_0.000_0.000_F_0.604cm_5803_im.npy")
     image = np.load("/vols/lz/twatson/ANN/final_ims/351.803keV_0.000_0.000_F_1.522cm_5677_im.npy")
+    image = np.load('/vols/lz/twatson/ANN/old_final_ims/164.808keV_0.000_0.000_C_0.741cm_7190_im.npy')
     
     fig, axs = plt.subplots(num, 2*num, figsize = (10,10))
     vgg_mean = np.array([-103.939,  -116.779, -123.68])
@@ -739,5 +676,72 @@ if occlusion_analysis:
             ax.axis("off")
 
 
-plt.tight_layout()
-plt.show()
+    plt.tight_layout()
+    plt.show()
+
+
+if accuracy_with_energy:
+    # histogram approach
+    data_arr = np.array(data, dtype=object)
+
+    # Extract energies, true labels, and predictions.
+    energies = data_arr[:, 2].astype(float)
+    true_labels = data_arr[:, 1].astype(int)
+    predictions = data_arr[:, 3].astype(float)
+
+    # Determine the predicted class (using 0.5 as the decision threshold).
+    threshold = 0.5
+    predicted_labels = (predictions >= threshold).astype(int)
+
+    # Calculate a boolean array for whether each prediction is correct.
+    correct = (predicted_labels == true_labels)
+
+    # Choose the number of bins for energy. Here we use 10 bins.
+    num_bins = 10
+    bins = np.linspace(energies.min(), energies.max(), num_bins + 1)
+
+    # Digitize the energies into bins.
+    bin_indices = np.digitize(energies, bins)
+
+    # Calculate the bin centers (for plotting on the x-axis).
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+
+    # Prepare lists for binned accuracy, uncertainties, and counts.
+    acc_list = []
+    err_list = []
+    counts = []
+
+    # Loop over each bin to calculate the accuracy and the uncertainty.
+    for i in range(1, len(bins)):
+        idx = np.where(bin_indices == i)[0]  # indices for events in the current bin
+        n = len(idx)
+        if n == 0:
+            # If there are no events in this bin, record NaN values.
+            acc_list.append(np.nan)
+            err_list.append(np.nan)
+            counts.append(0)
+        else:
+            n_correct = np.sum(correct[idx])
+            accuracy = n_correct / n
+            acc_list.append(accuracy)
+            counts.append(n)
+            # Compute the binomial uncertainty.
+            err = np.sqrt(accuracy * (1 - accuracy) / n)
+            err_list.append(err)
+
+    # Plot the binned accuracy versus energy with error bars.
+    plt.figure(figsize=(8, 6))
+    plt.bar(bin_centers, acc_list, width=(bins[1]-bins[0])*0.9, align='center', label='Binned Accuracy')
+    plt.errorbar(bin_centers, acc_list, yerr=err_list, fmt='none', ecolor='black', capsize=5, label='Uncertainty')
+
+    plt.xlabel('Energy (keV)')
+    plt.ylabel('Accuracy')
+    plt.title('Model Accuracy vs. Energy (Histogram)')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    plt.xlim(0,710)
+    plt.ylim(0.5,1.05)
+    if save:
+        plt.savefig("energy_accuracy_hist.png",dpi=300)
+    plt.show()
+    

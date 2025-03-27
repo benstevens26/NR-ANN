@@ -5,18 +5,38 @@ from tqdm import tqdm
 import os, re
 from skimage.filters import threshold_otsu
 
+# base_dirs = [
+#     "/vols/lz/tmarley/GEM_ITO/run/im0/C",
+#     "/vols/lz/tmarley/GEM_ITO/run/im0/F",
+#     "/vols/lz/tmarley/GEM_ITO/run/im1/C",
+#     "/vols/lz/tmarley/GEM_ITO/run/im1/F",
+#     "/vols/lz/tmarley/GEM_ITO/run/im2/C",
+#     "/vols/lz/tmarley/GEM_ITO/run/im2/F",
+#     "/vols/lz/tmarley/GEM_ITO/run/im3/C",
+#     "/vols/lz/tmarley/GEM_ITO/run/im3/F",
+#     "/vols/lz/tmarley/GEM_ITO/run/im4/C",
+#     "/vols/lz/tmarley/GEM_ITO/run/im4/F",
+# ]
+
 base_dirs = [
-    "/vols/lz/tmarley/GEM_ITO/run/im0/C",
-    "/vols/lz/tmarley/GEM_ITO/run/im0/F",
-    "/vols/lz/tmarley/GEM_ITO/run/im1/C",
-    "/vols/lz/tmarley/GEM_ITO/run/im1/F",
-    "/vols/lz/tmarley/GEM_ITO/run/im2/C",
-    "/vols/lz/tmarley/GEM_ITO/run/im2/F",
-    "/vols/lz/tmarley/GEM_ITO/run/im3/C",
-    "/vols/lz/tmarley/GEM_ITO/run/im3/F",
-    "/vols/lz/tmarley/GEM_ITO/run/im4/C",
-    "/vols/lz/tmarley/GEM_ITO/run/im4/F",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF40/C",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF40/F",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF40/Ar",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF41/C",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF41/F",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF41/Ar",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF42/C",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF42/F",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF42/Ar",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF43/C",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF43/F",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF43/Ar",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF44/C",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF44/F",
+"/vols/lz/tmarley/GEM_ITO/run/im_Ar_CF44/Ar"
 ]
+
+
 batch_size = 16
 dark_list_number = 0
 binning = 1
@@ -34,6 +54,7 @@ if __name__ == "__main__":
         example_dark_list_unbinned, dtype=tf.float32
     )
 else: # hopefully this makes it so that when i import things it won't kill the kernel
+    print("WARNING: NOT USING ALL AVAILABLE DARKS")
     example_dark_tensor = tf.convert_to_tensor(
         example_dark_list_unbinned[:10], dtype=tf.float32
     )    
@@ -89,19 +110,27 @@ def preprocess_file_path_unscaled(
     return image
 
 
-def get_file_list(seed=77, min_energy=10, return_low_energies = False):
-    uncropped_error = np.loadtxt(
-        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
-        delimiter=",",
-        dtype=str,
-    )
-    min_dim_error = np.loadtxt(
-        "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/min_dim_error.csv",
-        delimiter=",",
-        dtype=str,
-    )
+def get_file_list(seed=77, min_energy=10, return_low_energies = False,argon=False):
+
+    if argon:
+        errors = np.loadtxt(
+            "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/argon_errors.csv",
+            delimiter=",",
+            dtype=str,
+        )
+    else:
+        uncropped_error = np.loadtxt(
+            "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/uncropped_error.csv",
+            delimiter=",",
+            dtype=str,
+        )
+        min_dim_error = np.loadtxt(
+            "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/min_dim_error.csv",
+            delimiter=",",
+            dtype=str,
+        )
+        errors = np.concatenate((uncropped_error, min_dim_error))
     # Get all the .npy files from base_dirs
-    errors = np.concatenate((uncropped_error, min_dim_error))
 
     # Get all the .npy files from base_dirs
     file_list = []
@@ -133,8 +162,8 @@ def get_file_list(seed=77, min_energy=10, return_low_energies = False):
         return file_list
 
 if __name__ == "__main__":
-    file_list, low_list = get_file_list(return_low_energies = True)
-
+    file_list, low_list = get_file_list(return_low_energies = True,argon=True)
+    file_list+=low_list
 
     for i in range(10):
         example_dark_list_unbinned = np.load(
@@ -147,27 +176,27 @@ if __name__ == "__main__":
         end_idx = (i + 1) * (len(file_list) // 10)
         for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing chunk {i+1}/{10}"):
             image = np.load(file_path)
-            image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
+            image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor,steps=[1,2,4,5,6])
             np.save(
-                f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
+                f"/vols/lz/twatson/ANN/final_ims_Ar/{os.path.basename(file_path)}",
                 image,
             )
             
             
-    file_list = low_list
-    for i in range(10):
-        example_dark_list_unbinned = np.load(
-        f"{dark_dir}/quest_std_dark_{i}.npy"
-        )
-        example_dark_tensor = tf.convert_to_tensor(
-            example_dark_list_unbinned, dtype=tf.float32
-        )
-        start_idx = i * (len(file_list) // 10)
-        end_idx = (i + 1) * (len(file_list) // 10)
-        for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing LOW LIST chunk {i+1}/{10}"):
-            image = np.load(file_path)
-            image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
-            np.save(
-                f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
-                image,
-            )
+    # file_list = low_list
+    # for i in range(10):
+    #     example_dark_list_unbinned = np.load(
+    #     f"{dark_dir}/quest_std_dark_{i}.npy"
+    #     )
+    #     example_dark_tensor = tf.convert_to_tensor(
+    #         example_dark_list_unbinned, dtype=tf.float32
+    #     )
+    #     start_idx = i * (len(file_list) // 10)
+    #     end_idx = (i + 1) * (len(file_list) // 10)
+    #     for file_path in tqdm(file_list[start_idx:end_idx], desc=f"Processing LOW LIST chunk {i+1}/{10}"):
+    #         image = np.load(file_path)
+    #         image = preprocess_file_path_unscaled(image, m_dark_tensor, example_dark_tensor)
+    #         np.save(
+    #             f"/vols/lz/twatson/ANN/final_ims/{os.path.basename(file_path)}",
+    #             image,
+    #         )

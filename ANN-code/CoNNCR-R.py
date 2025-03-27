@@ -10,11 +10,12 @@ from cnn_processing import get_file_list
 from tensorflow import keras
 from tensorflow.keras.applications.vgg16 import VGG16  # type: ignore
 from tensorflow.keras.layers import *  # type: ignore
+from keras import regularizers
 import json
 
 finetune = True
 exclude_low_e = True
-CoNNCR_version = 11
+CoNNCR_version = 13
 
 
 def load_and_process(file_path):
@@ -94,13 +95,17 @@ inputs = keras.Input(shape=(224, 224, 3))
 base_model = VGG16(weights="imagenet", include_top=False, input_tensor=inputs)
 net = base_model.output
 net = tf.keras.layers.Flatten()(net)
-net = tf.keras.layers.Dense(256, activation="leaky_relu")(net)
-net = tf.keras.layers.Dropout(0.4)(net)
-net = tf.keras.layers.Dense(64, activation="leaky_relu")(net)
-net = tf.keras.layers.Dropout(0.4)(net)
+net = tf.keras.layers.Dense(256, kernel_regularizer=regularizers.l2(1e-4))(net)
+net = tf.keras.layers.BatchNormalization()(net)
+net = tf.keras.layers.Activation("leaky_relu")(net)
+net = tf.keras.layers.Dropout(0.3)(net)
+net = tf.keras.layers.Dense(64, kernel_regularizer=regularizers.l2(1e-4))(net)
+net = tf.keras.layers.BatchNormalization()(net)
+net = tf.keras.layers.Activation("leaky_relu")(net)
+net = tf.keras.layers.Dropout(0.3)(net)
 preds = tf.keras.layers.Dense(2, activation="softmax")(net) if num_categories == 2 else tf.keras.layers.Dense(num_categories, activation="softmax")(net)
 model = tf.keras.Model(base_model.input, preds)
-num_new_layers = 6
+num_new_layers = 9
 
 
 # Freeze convolutional layers for initial training
@@ -147,7 +152,6 @@ early_stopping = keras.callbacks.EarlyStopping(
 # load in latest epoch
 # model.load_weights("/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v5/ckpt/finetuned/epoch-30.keras")
 
-
 history = model.fit(
     train_dataset,
     epochs=epochs,
@@ -173,10 +177,10 @@ with open(history_filename, "w") as file:
 
 # unfreeze VGG16 layers for finetuning
 
-for layer in model.layers[:-num_new_layers]:
+for layer in model.layers[-(num_new_layers + 3):]:
     layer.trainable = True
 opt = tf.keras.optimizers.Adam(
-    learning_rate=1e-6
+    learning_rate=5e-6
 )
 # loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
 loss = tf.keras.losses.SparseCategoricalCrossentropy()
@@ -195,10 +199,10 @@ ckpt_callback = tf.keras.callbacks.ModelCheckpoint(
     monitor="val_loss",
 )
 
-epochs = 100
+epochs = 30
 
 early_stopping = keras.callbacks.EarlyStopping(
-    monitor="accuracy", patience=15, restore_best_weights=True
+    monitor="val_accuracy", patience=5, restore_best_weights=True
 )
 
 finetuned_history = model.fit(
@@ -211,6 +215,36 @@ finetuned_history = model.fit(
 )
 
 
+for layer in model.layers[-(num_new_layers + 4):]:
+    layer.trainable = True
+opt = tf.keras.optimizers.Adam(
+    learning_rate=1e-6
+)
+model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])
+
+early_stopping = keras.callbacks.EarlyStopping(
+    monitor="val_accuracy", patience=5, restore_best_weights=True
+)
+
+ckpt_path = os.path.join(log_dir, "ckpt","finetuned", "epoch-{epoch:02d}_2.keras")
+
+ckpt_callback = tf.keras.callbacks.ModelCheckpoint(
+    ckpt_path,
+    save_weights_only=False,
+    save_best_only=False,
+    monitor="val_loss",
+)
+
+
+finetuned_history_2 = model.fit(
+    train_dataset,
+    epochs=epochs,
+    validation_data=val_dataset,
+    verbose=1,
+    class_weight=None,  # look into changing this, might be good to
+    callbacks=[tb_callback, ckpt_callback, early_stopping],
+)
+
 finetuned_history_filename = os.path.join(log_dir, "finetuned_history.json")
 
 model_save_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-R.keras"
@@ -222,6 +256,11 @@ except:
 with open(finetuned_history_filename, "w") as file:
     json.dump(finetuned_history.history, file)
 
+
+finetuned_history_2_filename = os.path.join(log_dir, "finetuned_history_2.json")
+
+with open(finetuned_history_2_filename, "w") as file:
+    json.dump(finetuned_history_2.history, file)
 
 print("Predicting...")
 import csv
