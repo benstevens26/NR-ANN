@@ -6,7 +6,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import numpy as np
 import tensorflow as tf
-from cnn_processing import get_file_list
+from preprocess import get_file_list
 from tensorflow import keras
 from tensorflow.keras.applications.vgg16 import VGG16  # type: ignore
 from tensorflow.keras.layers import *  # type: ignore
@@ -15,14 +15,15 @@ import json
 
 finetune = True
 exclude_low_e = True
-CoNNCR_version = 13
+CoNNCR_version = 14
+argon = True
 
 
 def load_and_process(file_path):
     # file_path here is a tf.string tensor, so convert to numpy if needed
     file_path = file_path.numpy().decode("utf-8")
     image = np.load(file_path)
-    label = 0 if "C" in os.path.basename(file_path) else 1
+    label = 0 if "C" in os.path.basename(file_path) else 1 if "F" in os.path.basename(file_path) else 2
     return image, label
 
 def tf_load_and_process(file_path):
@@ -34,13 +35,13 @@ def tf_load_and_process(file_path):
 
 
 
-base_dirs = ["/vols/lz/twatson/ANN/old_final_ims"]
+base_dirs = ["/vols/lz/twatson/ANN/final_ims_Ar"]
 batch_size = 16
 binning = 1
 
 
 
-file_list, low_list = get_file_list(base_dirs,return_low_energies=True) if exclude_low_e else get_file_list(base_dirs,min_energy=0,return_low_energies=True)
+file_list, low_list = get_file_list(base_dirs,return_low_energies=True, argon=argon) if exclude_low_e else get_file_list(base_dirs,min_energy=0,return_low_energies=True, argon=argon)
 file_list = sorted(file_list) # only shuffle ONCE so that sets are easily reproducable
 np.random.seed(77) 
 np.random.shuffle(file_list)
@@ -58,7 +59,7 @@ train_list = file_list[:train_size]
 val_list = file_list[train_size:train_size + val_size]
 test_list = file_list[train_size + val_size : train_size + val_size + test_size]
 print(f"FIRST AND LAST ELEMENTS OF TEST SET: {test_list[0], test_list[-1]}")
-
+print(f"TEST SET SIZE: {len(test_list)}")
 
 
 # First 70% for training
@@ -87,7 +88,7 @@ low_test_dataset = low_test_dataset.batch(batch_size, drop_remainder=True).prefe
 
 
 
-num_categories = 2  # Change to 3 if argon included
+num_categories = 3 if argon else 2
 
 
 # Define model
@@ -180,7 +181,7 @@ with open(history_filename, "w") as file:
 for layer in model.layers[-(num_new_layers + 3):]:
     layer.trainable = True
 opt = tf.keras.optimizers.Adam(
-    learning_rate=5e-6
+    learning_rate=1e-6
 )
 # loss = tf.keras.losses.BinaryCrossentropy() if num_categories == 2 else tf.keras.losses.SparseCategoricalCrossentropy()
 loss = tf.keras.losses.SparseCategoricalCrossentropy()
@@ -215,10 +216,18 @@ finetuned_history = model.fit(
 )
 
 
+mid_tuning_history_filename = os.path.join(log_dir, "mid_tuning_history.json")
+
+model_save_path = f"/vols/lz/twatson/ANN/NR-ANN/ANN-code/old_models/CoNNCR-R/v{CoNNCR_version}/CoNNCR-R_mid_tuning.keras"
+try:
+    model.save(model_save_path)
+except:
+    model.save("CoNNCR-R_mid_tuning.keras")
+
 for layer in model.layers[-(num_new_layers + 4):]:
     layer.trainable = True
 opt = tf.keras.optimizers.Adam(
-    learning_rate=1e-6
+    learning_rate=5e-7
 )
 model.compile(loss=loss, optimizer=opt, metrics=["accuracy"])
 

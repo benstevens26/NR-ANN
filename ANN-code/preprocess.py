@@ -110,7 +110,7 @@ def preprocess_file_path_unscaled(
     return image
 
 
-def get_file_list(seed=77, min_energy=10, return_low_energies = False,argon=False):
+def get_file_list(base_dirs, seed=77, min_energy=10, return_low_energies = False, argon=False):
 
     if argon:
         errors = np.loadtxt(
@@ -162,7 +162,7 @@ def get_file_list(seed=77, min_energy=10, return_low_energies = False,argon=Fals
         return file_list
 
 if __name__ == "__main__":
-    file_list, low_list = get_file_list(return_low_energies = True,argon=True)
+    file_list, low_list = get_file_list(base_dirs, return_low_energies = True,argon=True)
     file_list+=low_list
 
     for i in range(10):

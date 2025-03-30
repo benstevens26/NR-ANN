@@ -21,21 +21,21 @@ which = "C"
 # -=+ plotting +=-
 save = False
 
-roc = True
-conf_mat = True
-prediction_with_energy = True
+roc = False
+conf_mat = False
+prediction_with_energy = False
 gradcam = False
 blank_analyis = False
-noise_analysis = True
+noise_analysis = False
 example_recoils = False
 preprocess_figure = False
-acc_loss_epochs = True
-occlusion_analysis = True
-accuracy_with_energy = True
+acc_loss_epochs = False
+occlusion_analysis = False
+accuracy_with_energy = False
 
 # -=+ dataset +=-
-biased = True
-exclude_low_energies = True
+biased = False
+exclude_low_energies = False
 save_sets = [False, False, False] # train, val, test
 
 
@@ -386,6 +386,11 @@ accuracy = sum(row[1] == round(row[3]) for row in data) / len(data)
 print(f"Biased? {biased}")
 print(f"Exclude low energy? {exclude_low_energies}")
 print(f"Accuracy: {accuracy:.2%}")
+from sklearn.metrics import precision_recall_fscore_support
+labels, preds = zip(*[(d[1], round(d[3])) for d in data])
+precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average='binary')
+print(f'Precision: {precision:.3f}\nRecall: {recall:.3f}\nF1 Score: {f1:.3f}')
+
 
 
 
@@ -613,9 +618,13 @@ if acc_loss_epochs:
     ax1.set_xlim(0, len(combined_data["accuracy"]))
     axloss.set_xlim(0, len(combined_data["accuracy"]))
 
+
+    ax1.vlines(25, 0, 1, color="black", linestyle=":")
+
     # Configure labels and title
+    
     labels = [l.get_label() for l in lines]
-    ax1.legend(lines, labels, loc="center right")
+    ax1.legend(lines, labels, loc="center left")
     ax1.set_title("Accuracy and Loss over Epochs")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Accuracy", color="blue")
