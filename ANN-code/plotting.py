@@ -34,14 +34,14 @@ occlusion_analysis = False
 accuracy_with_energy = False
 
 # -=+ dataset +=-
-biased = False
+biased = True
 exclude_low_energies = True
 save_sets = [False, False, False] # train, val, test
 
 
 # -=+ details +=-
-C_threshold = 50 # 130
-F_threshold = 50 # 170
+C_threshold = 130
+F_threshold = 170
 make_predictions = False
 CoNNCR_version = 12
 if which=="C":
@@ -237,8 +237,6 @@ with open(predictions_file_path, mode="r") as file:
 
 
 # Exclude data as desired
-if exclude_low_energies:
-    data = [event for event in data if not ((event[1] == 1 and event[2] < F_threshold) or (event[1] == 0 and event[2] < C_threshold))]
 
 if biased:
     CF_ratio = 7.33
@@ -256,6 +254,10 @@ if biased:
     
     data = C_data + F_data
     np.random.shuffle(data)
+
+if exclude_low_energies:
+    data = [event for event in data if not ((event[1] == 1 and event[2] < F_threshold) or (event[1] == 0 and event[2] < C_threshold))]
+
 
 def undo_preprocess(img):
     # Add back the mean pixel values
