@@ -7,7 +7,7 @@ import os
 import csv
 from tqdm import tqdm
 import re
-from preprocess import preprocess_file_path_unscaled
+from preprocess import preprocess_file_path_unscaled, get_file_list
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 
 backdoor = False
@@ -21,7 +21,7 @@ which = "C"
 # -=+ plotting +=-
 save = False
 
-roc = False
+roc = True
 conf_mat = False
 prediction_with_energy = False
 gradcam = False
@@ -35,11 +35,13 @@ accuracy_with_energy = False
 
 # -=+ dataset +=-
 biased = False
-exclude_low_energies = False
+exclude_low_energies = True
 save_sets = [False, False, False] # train, val, test
 
 
 # -=+ details +=-
+C_threshold = 50 # 130
+F_threshold = 50 # 170
 make_predictions = False
 CoNNCR_version = 12
 if which=="C":
@@ -128,7 +130,6 @@ elif which == "both":
 
 
 # get test dataset
-from cnn_processing import get_file_list
 
 base_dirs = ["/vols/lz/twatson/ANN/final_ims"]
 
@@ -237,7 +238,7 @@ with open(predictions_file_path, mode="r") as file:
 
 # Exclude data as desired
 if exclude_low_energies:
-    data = [event for event in data if not ((event[1] == 1 and event[2] < 170) or (event[1] == 0 and event[2] < 130))]
+    data = [event for event in data if not ((event[1] == 1 and event[2] < F_threshold) or (event[1] == 0 and event[2] < C_threshold))]
 
 if biased:
     CF_ratio = 7.33

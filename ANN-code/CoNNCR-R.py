@@ -35,7 +35,7 @@ def tf_load_and_process(file_path):
 
 
 
-base_dirs = ["/vols/lz/twatson/ANN/final_ims_Ar"]
+base_dirs = ["/vols/lz/twatson/ANN/final_ims_Ar"] if argon else ["/vols/lz/twatson/ANN/final_ims"]
 batch_size = 16
 binning = 1
 

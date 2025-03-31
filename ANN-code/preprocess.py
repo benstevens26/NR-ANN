@@ -130,6 +130,9 @@ def get_file_list(base_dirs, seed=77, min_energy=10, return_low_energies = False
             dtype=str,
         )
         errors = np.concatenate((uncropped_error, min_dim_error))
+    
+    errors = errors.flatten().tolist() if isinstance(errors, np.ndarray) else errors
+    error_basenames = {os.path.basename(e) for e in errors}
     # Get all the .npy files from base_dirs
 
     # Get all the .npy files from base_dirs
@@ -139,7 +142,7 @@ def get_file_list(base_dirs, seed=77, min_energy=10, return_low_energies = False
             files = [
                 f
                 for f in files
-                if (f.endswith(".npy") and os.path.join(root, f) not in errors and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) > min_energy)
+                if (f.endswith(".npy") and f not in error_basenames and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) > min_energy)
             ]
             file_list.extend([os.path.join(root, file) for file in files])
 
@@ -154,7 +157,7 @@ def get_file_list(base_dirs, seed=77, min_energy=10, return_low_energies = False
                 files = [
                     f
                     for f in files
-                    if (f.endswith(".npy") and os.path.join(root, f) not in errors and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) <= min_energy)
+                    if (f.endswith(".npy") and f not in error_basenames and float(re.search(r'/([\d.]+)keV', os.path.join(root, f)).group(1)) <= min_energy)
                 ]
                 low_file_list.extend([os.path.join(root, file) for file in files])
         return file_list, low_file_list
