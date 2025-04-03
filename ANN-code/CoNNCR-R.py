@@ -6,6 +6,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import numpy as np
 import tensorflow as tf
+# tf.config.run_functions_eagerly(True)
+
 from preprocess import get_file_list
 from tensorflow import keras
 from tensorflow.keras.applications.vgg16 import VGG16  # type: ignore
@@ -15,8 +17,9 @@ import json
 
 finetune = True
 exclude_low_e = True
-CoNNCR_version = 14
-argon = True
+CoNNCR_version = 15
+argon = False
+weight_class = True
 
 
 def load_and_process(file_path):
@@ -35,7 +38,9 @@ def tf_load_and_process(file_path):
 
 
 
-base_dirs = ["/vols/lz/twatson/ANN/final_ims_Ar"] if argon else ["/vols/lz/twatson/ANN/final_ims"]
+
+
+base_dirs = ["/vols/lz/twatson/ANN/final_ims_Ar"] if argon else ["/vols/lz/twatson/ANN/old_final_ims"]
 batch_size = 16
 binning = 1
 
@@ -62,6 +67,28 @@ print(f"FIRST AND LAST ELEMENTS OF TEST SET: {test_list[0], test_list[-1]}")
 print(f"TEST SET SIZE: {len(test_list)}")
 
 
+
+if weight_class:
+    CF_ratio = 7.33
+    num_F = int(sum(1 for row in val_list if "F" in os.path.basename(row)))
+    num_C = int(num_F//CF_ratio)
+
+    C_val = [row for row in val_list if "C" in os.path.basename(row)]
+    F_val = [row for row in val_list if "F" in os.path.basename(row)]
+    
+    if len(C_val) > num_C:
+        # Randomly shuffle and select only num_C elements
+        np.random.seed(77)
+        np.random.shuffle(C_val)
+        C_val = C_val[:num_C]
+    
+    val_list = C_val + F_val
+    np.random.shuffle(val_list)
+
+
+
+
+
 # First 70% for training
 train_dataset = tf.data.Dataset.from_tensor_slices(train_list)
 train_dataset = train_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
@@ -71,6 +98,10 @@ train_dataset = train_dataset.batch(batch_size, drop_remainder=True).prefetch(tf
 val_dataset = tf.data.Dataset.from_tensor_slices(val_list)
 val_dataset = val_dataset.map(tf_load_and_process, num_parallel_calls=tf.data.AUTOTUNE)
 val_dataset = val_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE) # Next 15%
+
+
+
+
 
 # Next 15 % for test
 test_dataset = tf.data.Dataset.from_tensor_slices(test_list)
@@ -158,7 +189,7 @@ history = model.fit(
     epochs=epochs,
     validation_data=val_dataset,
     verbose=1,
-    class_weight=None,  # look into changing this, might be good to for argon
+    class_weight= { 0 : 1 , 1 : 4.04 } if weight_class else None,  # look into changing this, might be good to for argon
     callbacks=[tb_callback, ckpt_callback, early_stopping],
 )
 
@@ -211,7 +242,7 @@ finetuned_history = model.fit(
     epochs=epochs,
     validation_data=val_dataset,
     verbose=1,
-    class_weight=None,  # look into changing this, might be good to
+    class_weight={ 0 : 1 , 1 : 4.04 } if weight_class else None,  # look into changing this, might be good to
     callbacks=[tb_callback, ckpt_callback, early_stopping],
 )
 
@@ -250,7 +281,7 @@ finetuned_history_2 = model.fit(
     epochs=epochs,
     validation_data=val_dataset,
     verbose=1,
-    class_weight=None,  # look into changing this, might be good to
+    class_weight={ 0 : 1 , 1 : 4.04 } if weight_class else None,  # look into changing this, might be good to
     callbacks=[tb_callback, ckpt_callback, early_stopping],
 )
 

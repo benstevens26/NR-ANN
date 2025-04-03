@@ -10,7 +10,7 @@ import re
 from preprocess import preprocess_file_path_unscaled, get_file_list
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 
-backdoor = False
+backdoor = True
 
 # -=+ model +=-
 # which = "L"
@@ -21,7 +21,7 @@ which = "C"
 # -=+ plotting +=-
 save = False
 
-roc = True
+roc = False
 conf_mat = False
 prediction_with_energy = False
 gradcam = False
@@ -33,15 +33,21 @@ acc_loss_epochs = False
 occlusion_analysis = False
 accuracy_with_energy = False
 
+
 # -=+ dataset +=-
 biased = True
 exclude_low_energies = True
+threshold_with_intensity = True
 save_sets = [False, False, False] # train, val, test
-
+min_acc_set = True
 
 # -=+ details +=-
 C_threshold = 130
 F_threshold = 170
+F_low_threshold_int = 485599.1264847403
+F_high_threshold_int = 1564652.6704808741
+
+
 make_predictions = False
 CoNNCR_version = 12
 if which=="C":
@@ -55,8 +61,8 @@ if CoNNCR_version <= 3:
 else:
     use_unscaled = True
 
-if backdoor:
-    predictions_file_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv"
+# if backdoor:
+#     predictions_file_path = "/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv"
 
 
 # Load model(s) of choice
@@ -200,38 +206,53 @@ if make_predictions:
             for path, pred in zip(batched_paths, predictions):
                 writer.writerow([path, list(pred)]) 
 
+
+
+
+
+if backdoor:
+    import pandas as pd
+    df = pd.read_csv("/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/features_CF4_3_raw.csv", delimiter="\t")
+    # Extract energy from cam_path
+    df["energy"] = df["cam_path"].apply(
+        lambda x: float(re.search(r'/([\d.]+)keV', x).group(1)) if re.search(r'/([\d.]+)keV', x) else None
+    )
+
+    # Read predictions into a new DataFrame
+    predictions = []
+    with open("/vols/lz/twatson/ANN/NR-ANN/ANN-code/logs/LENRI-CF4-3_predictions.csv", mode="r") as file:
+        reader = csv.reader(file, delimiter="\t")
+        next(reader)  # Skip header
+        for row in reader:
+            file_path, prediction_F = row  # Extract columns
+            true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
+            predictions.append({"cam_path": file_path, "species": true_class, "prediction": prediction_F})
+
+    # Convert predictions list to DataFrame
+    df_predictions = pd.DataFrame(predictions)
+
+    # Merge the DataFrames based on cam_path
+    df = df.merge(df_predictions, on="cam_path", how="inner")
+    df["prediction"] = pd.to_numeric(df["prediction"], errors="coerce")
+    df["correctness"] = 1 - np.abs(df["species"] - df["prediction"])
+
+
 data = []  # List to store extracted data
 with open(predictions_file_path, mode="r") as file:
-    if backdoor:
-        reader = csv.reader(file, delimiter="\t")
-    else:
-        reader = csv.reader(file)
+    reader = csv.reader(file)
     next(reader)  # Skip header
+    for row in reader:
+        file_path, prediction_str = row  # Extract columns
+        
+        # Convert prediction string "[0.3, 0.7]" into a list [0.3, 0.7]
+        prediction = eval(prediction_str)  # Safely convert string to list
 
-    if backdoor:
-        for row in reader:
-            file_path, prediction_C, prediction_F = row  # Extract columns
-            
-            # Convert prediction string "[0.3, 0.7]" into a list [0.3, 0.7]
-              # Safely convert string to list
+        # Determine ground truth class from filename
+        true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
+        energy = float(re.search(r'/([\d.]+)keV', file_path).group(1))
+        # Store information in a structured format
+        data.append([file_path, true_class, energy, prediction[1]])
 
-            # Determine ground truth class from filename
-            true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
-            energy = float(re.search(r'/([\d.]+)keV', file_path).group(1))
-            # Store information in a structured format
-            data.append([file_path, true_class, energy, float(prediction_F)])
-    else:
-        for row in reader:
-            file_path, prediction_str = row  # Extract columns
-            
-            # Convert prediction string "[0.3, 0.7]" into a list [0.3, 0.7]
-            prediction = eval(prediction_str)  # Safely convert string to list
-
-            # Determine ground truth class from filename
-            true_class = 1 if "F" in os.path.basename(file_path) else 0  # Assign class based on "F" or "C"
-            energy = float(re.search(r'/([\d.]+)keV', file_path).group(1))
-            # Store information in a structured format
-            data.append([file_path, true_class, energy, prediction[1]])
 
 
 
@@ -242,7 +263,7 @@ if biased:
     CF_ratio = 7.33
     num_F = int(sum(1 for row in data if row[1] == 1))
     num_C = int(num_F//CF_ratio)
-    
+
     C_data = [row for row in data if row[1] == 0]
     F_data = [row for row in data if row[1] == 1]
     
@@ -254,9 +275,82 @@ if biased:
     
     data = C_data + F_data
     np.random.shuffle(data)
+    
 
-if exclude_low_energies:
+if exclude_low_energies and not threshold_with_intensity:
     data = [event for event in data if not ((event[1] == 1 and event[2] < F_threshold) or (event[1] == 0 and event[2] < C_threshold))]
+elif exclude_low_energies and threshold_with_intensity:
+    data = [event for event in data if not ((event[1] == 1 and event[2] < F_threshold) or (event[1] == 0 and event[2] < C_threshold))]
+
+
+# Create minimum accuracy set:
+if min_acc_set:
+    if backdoor:
+        if biased:
+            CF_ratio = 7.33
+            num_F = (df["species"] == 1).sum()  # Count F cases
+            num_C = int(num_F // CF_ratio)  # Compute number of C cases
+
+            C_data = df[df["species"] == 0]  # Select C cases
+            F_data = df[df["species"] == 1]  # Select F cases
+
+            if len(C_data) > num_C:
+                # Randomly shuffle and select only num_C elements
+                C_data = C_data.sample(n=num_C, random_state=77)
+
+            # Combine F_data and filtered C_data
+            df = pd.concat([C_data, F_data]).sample(frac=1, random_state=77)  # Shuffle dataset
+
+        # Apply energy thresholds
+        if exclude_low_energies and not threshold_with_intensity:
+            df = df[~((df["species"] == 1) & (df["energy"] < F_threshold)) & 
+                    ~((df["species"] == 0) & (df["energy"] < C_threshold))]
+        elif exclude_low_energies and threshold_with_intensity:
+            df = df[~((df["species"] == 1) & (df["energy"] < F_threshold)) & 
+                    ~((df["species"] == 0) & (df["energy"] < C_threshold))]
+    else:
+        raise Exception("Need to know sum_intensity for the min_acc_set, so please enable backdoor and use LENRI's results!")
+
+
+    df["min_acc_pred"] = ((df["sum_intensity_cam"] >= 485599.1264847403) & 
+                        (df["sum_intensity_cam"] <= 1564652.6704808741)).astype(int)
+    num_bins = 50
+    
+    
+    bin_edges = np.linspace(df["energy"].min(), df["energy"].max(), num_bins + 1)
+
+    # Assign energy values to bins
+    df["energy_bin"] = pd.cut(df["energy"], bins=bin_edges, labels=False)
+
+    # Calculate accuracy per bin
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Midpoints of bins
+    accuracy_per_bin = df.groupby("energy_bin").apply(lambda x: (x["species"] == x["min_acc_pred"]).mean())
+    LENRI_accuracy_per_bin = df.groupby("energy_bin").apply(lambda x: (x["species"] == (x["prediction"].round())).mean())
+    F_ratio_by_bin = df.groupby("energy_bin")["species"].mean()
+
+
+    df_old = pd.DataFrame(data, columns=["file_path_cam", "species", "energy", "prediction"])
+    df_old["energy_bin"] = pd.cut(df_old["energy"], bins=bin_edges, labels=False)
+
+    CoNNCR_accuracy_per_bin = df_old.groupby("energy_bin").apply(lambda x: (x["species"] == x["prediction"].round()).mean())
+
+
+
+
+    # Plot results
+    plt.figure(figsize=(8, 5))
+    plt.plot(bin_centers, accuracy_per_bin, marker='.', color="black", linestyle='-')
+    # plt.plot(bin_centers, LENRI_accuracy_per_bin, marker='.', color="#FF4500", linestyle='-')
+    # plt.plot(bin_centers, CoNNCR_accuracy_per_bin, marker='.', color="#000080", linestyle='-')
+    plt.plot(bin_centers, F_ratio_by_bin.values, linestyle='-.', color='black',alpha=0.4)
+
+    plt.xlabel("Energy (keV)")
+    plt.ylabel("Accuracy")
+    plt.title("Accuracy vs. Energy")
+    plt.axvline(x=170, color='black', linestyle='--', linewidth=1.5, label="E = 170 keV")
+    plt.axvline(x=470, color='black', linestyle='--', linewidth=1.5, label="E = 470 keV")
+    plt.grid(True)
+    plt.show()
 
 
 def undo_preprocess(img):
@@ -274,6 +368,31 @@ def undo_preprocess(img):
     img = (img - min_val) / (max_val - min_val) * 255
 
     return img.astype(np.uint8)
+
+
+################################==FIGURES==################################
+# for i in data:
+#     energy = i[2]
+#     if energy < 170:
+#         pred = 0
+#     elif energy > 170 and energy < 470:
+#         pred = 1
+#     elif energy > 470:
+#         pred = 0
+#     else:
+#         print("something went wrong")
+#     i.append(pred)
+# min_acc = sum(row[1] == row[4] for row in data) / len(data)
+# print("MINIMUM ACCURACY: " + str(min_acc))
+print(f"Length of test set = {len(data)}")
+accuracy = sum(row[1] == round(row[3]) for row in data) / len(data)
+print(f"Biased? {biased}")
+print(f"Exclude low energy? {exclude_low_energies}")
+print(f"Accuracy: {accuracy:.2%}")
+from sklearn.metrics import precision_recall_fscore_support
+labels, preds = zip(*[(d[1], round(d[3])) for d in data])
+precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average='binary')
+print(f'Precision: {precision:.3f}\nRecall: {recall:.3f}\nF1 Score: {f1:.3f}')
 
 
 
@@ -383,16 +502,6 @@ if prediction_with_energy:
     # plt.scatter(energies,predictions,marker=markers,c=colours)
     # plt.show()
 
-
-
-accuracy = sum(row[1] == round(row[3]) for row in data) / len(data)
-print(f"Biased? {biased}")
-print(f"Exclude low energy? {exclude_low_energies}")
-print(f"Accuracy: {accuracy:.2%}")
-from sklearn.metrics import precision_recall_fscore_support
-labels, preds = zip(*[(d[1], round(d[3])) for d in data])
-precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average='binary')
-print(f'Precision: {precision:.3f}\nRecall: {recall:.3f}\nF1 Score: {f1:.3f}')
 
 
 
