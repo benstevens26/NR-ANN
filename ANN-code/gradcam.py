@@ -1,7 +1,5 @@
 import os
-
 os.environ["KERAS_BACKEND"] = "tensorflow"
-
 import numpy as np
 import tensorflow as tf
 import keras
@@ -12,20 +10,12 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
-# model_builder = keras.applications.xception.Xception
-# img_size = (299, 299)
-# preprocess_input = keras.applications.xception.preprocess_input
-# decode_predictions = keras.applications.xception.decode_predictions
+from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
+from tensorflow.keras.preprocessing import image
 
-# last_conv_layer_name = "block14_sepconv2_act"
 
-# # The local path to our target image
-# img_path = keras.utils.get_file(
-#     "cat_and_dog.jpg",
-#     "https://storage.googleapis.com/petbacker/images/blog/2017/dog-and-cat-cover.jpg",
-# )
 
-# display(Image(img_path))
+
 
 
 def get_img_array(img_path, size):
@@ -75,33 +65,10 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None
 
 
 
-# img_array = preprocess_input(get_img_array(img_path, size=img_size))
-
-# # Make model
-# model = model_builder(weights="imagenet")
-
-# # Remove last layer's softmax
-# model.layers[-1].activation = None
-
-# # Print what the top predicted class is
-# preds = model.predict(img_array)
-# print("Predicted:", decode_predictions(preds, top=1)[0])
-
-# # Generate class activation heatmap
-# heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
-
-# # Display heatmap
-# plt.matshow(heatmap)
-# plt.show()
-
-
-
-
-
-
-def save_and_display_gradcam(img_array, heatmap, cam_path="cam.jpg", alpha=0.65):
+def superimpose_path(img_path, heatmap, alpha=0.4):
     # Load the original image
-    img = img_array
+    img = keras.utils.load_img(img_path)
+    img = keras.utils.img_to_array(img)
 
     # Rescale heatmap to a range 0-255
     heatmap = np.uint8(255 * heatmap)
@@ -118,64 +85,76 @@ def save_and_display_gradcam(img_array, heatmap, cam_path="cam.jpg", alpha=0.65)
     jet_heatmap = jet_heatmap.resize((img.shape[1], img.shape[0]))
     jet_heatmap = keras.utils.img_to_array(jet_heatmap)
 
-    
     # Superimpose the heatmap on original image
     superimposed_img = jet_heatmap * alpha + img
     superimposed_img = keras.utils.array_to_img(superimposed_img)
 
-    # # Save the superimposed image
-    superimposed_img.save(cam_path)
+    # Save the superimposed image
 
-    # # Display Grad CAM
-    display(Image(cam_path))
-    return superimposed_img
+    # Display Grad CAM
+    display(superimposed_img)
 
+def superimpose_array(img, heatmap, alpha=0.4):
+    # Load the original image
 
-# save_and_display_gradcam(img_path, heatmap)
+    # Rescale heatmap to a range 0-255
+    heatmap = np.uint8(255 * heatmap)
 
-# import cv2
-# import numpy as np
-# import matplotlib as mpl
-# import keras.utils
-# from PIL import Image
+    # Use jet colormap to colorize heatmap
+    jet = mpl.colormaps["jet"]
 
-# def overlay_heatmap(img_array, heatmap, alpha=0.4):
-#     """
-#     Overlays a heatmap on an image.
+    # Use RGB values of the colormap
+    jet_colors = jet(np.arange(256))[:, :3]
+    jet_heatmap = jet_colors[heatmap]
 
-#     Parameters:
-#         img_array (np.ndarray): A 224x224x3 image (RGB). Can be in range [0,1] or [0,255].
-#         heatmap (np.ndarray): A 14x14 array with values between 0 and 1.
-#         alpha (float): Opacity of the heatmap overlay (default 0.4).
+    # Create an image with RGB colorized heatmap
+    jet_heatmap = keras.utils.array_to_img(jet_heatmap)
+    jet_heatmap = jet_heatmap.resize((img.shape[1], img.shape[0]))
+    jet_heatmap = keras.utils.img_to_array(jet_heatmap)
 
-#     The function scales the heatmap to 0-255, applies the jet colormap, resizes it to match 
-#     the image dimensions using INTER_NEAREST, and then overlays it on the image.
-#     It displays the resulting image.
-#     """
-#     # Convert img_array to uint8 if necessary
-#     if img_array.dtype != np.uint8:
-#         # If the maximum value is <= 1, assume the image is in [0,1] range
-#         if img_array.max() <= 1:
-#             img_array = np.uint8(img_array * 255)
-#         else:
-#             img_array = np.uint8(img_array)
+    # Superimpose the heatmap on original image
+    superimposed_img = jet_heatmap * alpha + img
+    superimposed_img2 = keras.utils.array_to_img(superimposed_img)
+
+    superimposed_img = keras.utils.img_to_array(superimposed_img)
+    superimposed_img = superimposed_img - np.min(superimposed_img)
+    superimposed_img = superimposed_img / np.max(superimposed_img) * 255
     
-#     # Scale heatmap from 0-1 to 0-255
-#     heatmap_scaled = np.uint8(heatmap * 255)
+
+    # Display Grad CAM
+    display(superimposed_img2)
+    return superimposed_img.astype(np.uint8)
+
+
+# superimpose_path(img_path, heatmap)
+
+
+
+
+if __name__ == "__main__":
+    img_path = r'C:\Users\Tom\Desktop\School\Imperial\Year 4\MSci Project\Report\images\old\Dogs.png'  # Change this to your image file path
+    last_conv_layer_name  = 'block5_conv3'  
+
+    # img_path = r'C:\Users\Tom\Desktop\School\Imperial\Year 4\MSci Project\NR-ANN\ANN-code\Data\im0\F\214.710keV_0.000_0.000_F_1.358cm_4632_im.npy'
+
+    # model = VGG16(weights='imagenet')
+    model = keras.saving.load_model(r"C:\Users\Tom\Desktop\School\Imperial\Year 4\MSci Project\CoNNCR-R.keras")
+    img_size = (224, 224)
+
+    event = np.load(r"C:\Users\Tom\Desktop\School\Imperial\Year 4\MSci Project\NR-ANN\ANN-code\Data\im0\F\214.710keV_0.000_0.000_F_1.358cm_4632_im.npy")
+    event = np.repeat(event[:, :, np.newaxis], 3, axis=-1)
+    event = tf.image.resize_with_pad(event, 224, 224)
+    event = np.expand_dims(event, axis=0)
+    event = event/np.max(event)*255
     
-#     # Apply the jet colormap (OpenCV uses BGR by default)
-#     heatmap_color = cv2.applyColorMap(heatmap_scaled, cv2.COLORMAP_JET)
     
-#     # Resize the heatmap to match the image dimensions using INTER_NEAREST to reduce blurring
-#     heatmap_color = cv2.resize(heatmap_color, (img_array.shape[1], img_array.shape[0]), interpolation=cv2.INTER_NEAREST)
-    
-#     # Convert heatmap from BGR to RGB for correct color display with matplotlib
-#     heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
-    
-#     # Superimpose the heatmap on the original image using weighted addition
-#     superimposed_img = cv2.addWeighted(img_array, 1 - alpha, heatmap_color, alpha, 0)
-    
-#     # Display the final superimposed image
-#     plt.imshow(superimposed_img)
-#     plt.axis('off')
-#     plt.show()
+    img_array = preprocess_input(get_img_array(img_path, size=img_size))
+    img_array = preprocess_input(event)
+    # model.layers[-1].activation = None
+    preds = model.predict(img_array)
+    print("Predicted:", preds[0])
+    heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
+    plt.matshow(heatmap)
+    plt.show()
+    event_sup = superimpose_array(img_array[0], heatmap)
+    plt.matshow(event_sup)
